@@ -52,6 +52,17 @@ export default function ({ $axios, store, $db }) {
       console.warn('[Axios] No Bearer Token for request')
     }
 
+    // ADD CUSTOM HEADERS HERE
+    const serverConnectionConfig = store.state.user.serverConnectionConfig
+    if (serverConnectionConfig?.customHeaders) {
+      Object.keys(serverConnectionConfig.customHeaders).forEach((key) => {
+        if (serverConnectionConfig.customHeaders[key]) {
+          config.headers.common[key] = serverConnectionConfig.customHeaders[key]
+          console.log(`[Axios] Adding custom header: ${key}`)
+        }
+      })
+    }
+
     const serverUrl = store.getters['user/getServerAddress']
     if (serverUrl) {
       config.url = `${serverUrl}${config.url}`

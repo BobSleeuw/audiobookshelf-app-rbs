@@ -16,6 +16,17 @@ export default function ({ store, $db, $socket }, inject) {
         } else {
           console.warn('[nativeHttp] No Bearer Token for request')
         }
+
+        // ADD CUSTOM HEADERS HERE
+        if (serverConnectionConfig?.customHeaders) {
+          Object.keys(serverConnectionConfig.customHeaders).forEach((key) => {
+            if (serverConnectionConfig.customHeaders[key]) {
+              headers[key] = serverConnectionConfig.customHeaders[key]
+              console.log(`[nativeHttp] Adding custom header: ${key}`)
+            }
+          })
+        }
+
         if (serverConnectionConfig?.address) {
           url = `${serverConnectionConfig.address}${url}`
         }
@@ -56,7 +67,7 @@ export default function ({ store, $db, $socket }, inject) {
      * @param {*} data - Request data
      * @param {Object} headers - Request headers
      * @param {Object} options - Additional options
-     * @param {{ id: string, address: string, version: string }} serverConnectionConfig
+     * @param {{ id: string, address: string, version: string, customHeaders: Object }} serverConnectionConfig
      * @returns {Promise} - Promise that resolves with the response data
      */
     async handleTokenRefresh(method, url, data, headers, options, serverConnectionConfig) {
@@ -76,7 +87,7 @@ export default function ({ store, $db, $socket }, inject) {
         }
 
         // Attempt to refresh the token
-        const newTokens = await this.refreshAccessToken(refreshToken, serverConnectionConfig.address)
+        const newTokens = await this.refreshAccessToken(refreshToken, serverConnectionConfig.address, serverConnectionConfig.customHeaders)
         if (!newTokens?.accessToken) {
           console.error('[nativeHttp] Failed to refresh access token')
           throw new Error('Failed to refresh access token')
@@ -117,9 +128,10 @@ export default function ({ store, $db, $socket }, inject) {
      * Refreshes the access token using the refresh token
      * @param {string} refreshToken - The refresh token
      * @param {string} serverAddress - The server address
+     * @param {Object} customHeaders - Custom headers to include
      * @returns {Promise<Object|null>} - Promise that resolves with new tokens or null
      */
-    async refreshAccessToken(refreshToken, serverAddress) {
+    async refreshAccessToken(refreshToken, serverAddress, customHeaders = {}) {
       try {
         if (!serverAddress) {
           throw new Error('No server address available')
@@ -127,12 +139,23 @@ export default function ({ store, $db, $socket }, inject) {
 
         console.log('[nativeHttp] Refreshing access token...')
 
+        const refreshHeaders = {
+          'Content-Type': 'application/json',
+          'x-refresh-token': refreshToken
+        }
+
+        // Add custom headers to refresh request
+        if (customHeaders) {
+          Object.keys(customHeaders).forEach((key) => {
+            if (customHeaders[key]) {
+              refreshHeaders[key] = customHeaders[key]
+            }
+          })
+        }
+
         const response = await CapacitorHttp.post({
           url: `${serverAddress}/auth/refresh`,
-          headers: {
-            'Content-Type': 'application/json',
-            'x-refresh-token': refreshToken
-          },
+          headers: refreshHeaders,
           data: {}
         })
 
@@ -162,7 +185,7 @@ export default function ({ store, $db, $socket }, inject) {
     /**
      * Updates the store and secure storage with new tokens
      * @param {Object} tokens - Object containing accessToken and refreshToken
-     * @param {{ id: string, address: string, version: string }} serverConnectionConfig
+     * @param {{ id: string, address: string, version: string, customHeaders: Object }} serverConnectionConfig
      * @returns {Promise} - Promise that resolves when tokens are updated
      */
     async updateTokens(tokens, serverConnectionConfig) {

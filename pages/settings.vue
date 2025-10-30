@@ -159,6 +159,10 @@
       </div>
     </div>
 
+    <!-- Custom Headers settings -->
+    <p class="uppercase text-xs font-semibold text-fg-muted mb-2 mt-10">{{ $strings.HeaderCustomHeaders || 'Custom Headers' }}</p>
+    <connection-custom-headers-settings :custom-headers="currentCustomHeaders" @update="updateCustomHeaders" />
+
     <!-- Android Auto settings -->
     <template v-if="!isiOS">
       <p class="uppercase text-xs font-semibold text-fg-muted mb-2 mt-10">{{ $strings.HeaderAndroidAutoSettings }}</p>
@@ -187,8 +191,12 @@
 
 <script>
 import { Dialog } from '@capacitor/dialog'
+import ConnectionCustomHeadersSettings from '@/components/connection/CustomHeadersSettings.vue'
 
 export default {
+  components: {
+    ConnectionCustomHeadersSettings
+  },
   data() {
     return {
       loading: false,
@@ -435,6 +443,9 @@ export default {
       else if (this.moreMenuSetting === 'streamingUsingCellular') return this.streamingUsingCellularItems
       else if (this.moreMenuSetting === 'androidAutoBrowseSeriesSequenceOrder') return this.androidAutoBrowseSeriesSequenceOrderItems
       return []
+    },
+    currentCustomHeaders() {
+      return this.$store.state.user.serverConnectionConfig?.customHeaders || {}
     }
   },
   methods: {
@@ -617,6 +628,28 @@ export default {
         this.deviceData = updatedDeviceData
         this.$setLanguageCode(updatedDeviceData.deviceSettings?.languageCode || 'en-us')
         this.setDeviceSettings()
+      }
+    },
+    async updateCustomHeaders(headers) {
+      await this.$hapticsImpact()
+
+      const serverConnectionConfig = this.$store.state.user.serverConnectionConfig
+      if (!serverConnectionConfig) {
+        this.$toast.error('No server connection')
+        return
+      }
+
+      const updatedConfig = {
+        ...serverConnectionConfig,
+        customHeaders: headers
+      }
+
+      const savedConfig = await this.$db.setServerConnectionConfig(updatedConfig)
+      if (savedConfig) {
+        this.$store.commit('user/setServerConnectionConfig', savedConfig)
+        this.$toast.success('Custom headers saved')
+      } else {
+        this.$toast.error('Failed to save custom headers')
       }
     },
     setDeviceSettings() {
