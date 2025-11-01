@@ -36,6 +36,16 @@
           </div>
           <h2 class="text-lg leading-7 mb-2">{{ $strings.LabelServerAddress }}</h2>
           <ui-text-input v-model="serverConfig.address" :disabled="processing || !networkConnected || !!serverConfig.id" placeholder="http://55.55.55.55:13378" type="url" class="w-full h-10" />
+
+          <!-- Advanced Settings Button -->
+          <div class="flex items-center mt-3 mb-2">
+            <ui-btn small color="primary" outlined @click="showCustomHeadersModal = true" type="button" :disabled="processing || !networkConnected">
+              <span class="material-symbols text-base mr-1">settings</span>
+              {{ $strings.ButtonAdvancedSettings || 'Advanced' }}
+            </ui-btn>
+            <p v-if="serverConfig.customHeaders && Object.keys(serverConfig.customHeaders).length" class="text-xs text-success ml-2">{{ Object.keys(serverConfig.customHeaders).length }} {{ $strings.LabelCustomHeaderConfigured || 'custom header(s) configured' }}</p>
+          </div>
+
           <div class="flex justify-end items-center mt-6">
             <ui-btn :disabled="processing || !networkConnected" type="submit" :padding-x="3" class="h-10">{{ networkConnected ? $strings.ButtonSubmit : $strings.MessageNoNetworkConnection }}</ui-btn>
           </div>
@@ -87,7 +97,7 @@
 
     <p v-if="!serverConnectionConfigs.length" class="mt-2 text-center text-error" v-html="$strings.MessageAudiobookshelfServerRequired" />
 
-    <modals-custom-headers-modal v-model="showAddCustomHeaders" :custom-headers.sync="serverConfig.customHeaders" />
+    <modals-custom-headers-modal v-model="showCustomHeadersModal" :custom-headers="serverConfig.customHeaders || {}" @save="saveCustomHeaders" />
   </div>
 </template>
 
@@ -114,7 +124,7 @@ export default {
       password: null,
       error: null,
       showForm: false,
-      showAddCustomHeaders: false,
+      showCustomHeadersModal: false,
       authMethods: [],
       oauth: {
         state: null,
@@ -153,6 +163,10 @@ export default {
     }
   },
   methods: {
+    saveCustomHeaders(headers) {
+      this.serverConfig.customHeaders = headers
+      this.$toast.success(this.$strings.MessageCustomHeadersSaved || 'Custom headers saved')
+    },
     showOldUserIdWarningDialog() {
       Dialog.alert({
         title: 'Old Server Connection Warning',
@@ -433,9 +447,6 @@ export default {
         this.oauth.challenge = null
       }
     },
-    addCustomHeaders() {
-      this.showAddCustomHeaders = true
-    },
     showServerList() {
       this.showForm = false
       this.showAuth = false
@@ -443,7 +454,8 @@ export default {
       this.serverConfig = {
         address: null,
         userId: null,
-        username: null
+        username: null,
+        customHeaders: null
       }
     },
     async connectToServer(config) {
@@ -454,7 +466,7 @@ export default {
         ...config
       }
       this.showForm = true
-      var success = await this.pingServerAddress(config.address)
+      var success = await this.pingServerAddress(config.address, config.customHeaders)
       this.processing = false
       console.log(`[ServerConnectForm] pingServer result ${success}`)
       if (!success) {
@@ -496,7 +508,8 @@ export default {
         this.serverConfig = {
           address: null,
           userId: null,
-          username: null
+          username: null,
+          customHeaders: null
         }
         this.password = null
         this.processing = false
@@ -518,7 +531,8 @@ export default {
       this.serverConfig = {
         address: '',
         userId: '',
-        username: ''
+        username: '',
+        customHeaders: null
       }
       this.showForm = true
       this.showAuth = false
@@ -563,7 +577,7 @@ export default {
      * @throws {Error} An error with 'code' property set to the HTTP status code if the response is not successful.
      * @throws {Error} An error with 'code' property set to the error code if the request fails.
      */
-    async getRequest(url, headers, connectTimeout = 6000) {
+    async getRequest(url, headers = {}, connectTimeout = 6000) {
       const options = {
         url,
         headers,
@@ -614,10 +628,12 @@ export default {
      *    HttpResponse.data is {isInit:boolean, language:string, authMethods:string[]}>
      */
     async getServerAddressStatus(address) {
-      return this.getRequest(`${address}/status`)
+      const headers = this.serverConfig.customHeaders || {}
+      return this.getRequest(`${address}/status`, headers)
     },
     pingServerAddress(address, customHeaders) {
-      return this.getRequest(`${address}/ping`, customHeaders)
+      const headers = customHeaders || this.serverConfig.customHeaders || {}
+      return this.getRequest(`${address}/ping`, headers)
         .then((response) => {
           return response.data.success
         })
@@ -708,15 +724,23 @@ export default {
     validateLoginFormResponse(statusData, initialAddressWithProtocol, protocolProvided) {
       // We have a 200 status code at this point
 
-      // Check if we got redirected to a different hostname, we don't allow this
+      // If custom headers are configured, be more lenient with redirects (for Cloudflare tunnels)
+      const hasCustomHeaders = this.serverConfig.customHeaders && Object.keys(this.serverConfig.customHeaders).length > 0
+
+      // Check if we got redirected to a different hostname, we don't allow this unless custom headers are set
       const initialAddressUrl = new URL(initialAddressWithProtocol)
       const currentAddressUrl = new URL(statusData.url)
-      if (initialAddressUrl.hostname !== currentAddressUrl.hostname) {
+      if (!hasCustomHeaders && initialAddressUrl.hostname !== currentAddressUrl.hostname) {
         this.error = `Server redirected somewhere else (to ${currentAddressUrl.hostname})`
         console.error(`[ServerConnectForm] Server redirected somewhere else (to ${currentAddressUrl.hostname})`)
         return false
-      } // We don't allow a redirection back from https to http if the user used https:// explicitly
-      else if (protocolProvided && initialAddressWithProtocol.startsWith('https://') && currentAddressUrl.protocol === 'http') {
+      }
+      // If custom headers are present and hostname differs, just log it but continue
+      else if (hasCustomHeaders && initialAddressUrl.hostname !== currentAddressUrl.hostname) {
+        console.log(`[ServerConnectForm] Server redirected to ${currentAddressUrl.hostname} (allowed with custom headers)`)
+      }
+      // We don't allow a redirection back from https to http if the user used https:// explicitly
+      else if (protocolProvided && initialAddressWithProtocol.startsWith('https://') && currentAddressUrl.protocol === 'http:') {
         this.error = `You specified https:// but the Server redirected back to plain http`
         console.error(`[ServerConnectForm] User specified https:// but server redirected to http`)
         return false
@@ -915,7 +939,8 @@ export default {
 
       const nativeHttpOptions = {
         headers: {
-          Authorization: `Bearer ${this.serverConfig.token}`
+          Authorization: `Bearer ${this.serverConfig.token}`,
+          ...(this.serverConfig.customHeaders || {})
         },
         serverConnectionConfig: this.serverConfig
       }
