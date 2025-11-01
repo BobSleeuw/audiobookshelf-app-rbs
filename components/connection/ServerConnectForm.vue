@@ -119,7 +119,7 @@ export default {
         address: null,
         version: null,
         username: null,
-        customHeaders: null
+        customHeaders: {}
       },
       password: null,
       error: null,
@@ -532,7 +532,7 @@ export default {
         address: '',
         userId: '',
         username: '',
-        customHeaders: null
+        customHeaders: {} // Make sure this is initialized as empty object, not null
       }
       this.showForm = true
       this.showAuth = false

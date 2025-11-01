@@ -1,34 +1,40 @@
 <template>
   <div class="w-full">
-    <p class="uppercase text-xs font-semibold text-fg-muted mb-2">{{ $strings.HeaderCustomHeaders || 'Custom Headers' }}</p>
-
-    <!-- Info text -->
-    <p class="text-sm text-fg-muted mb-4">Add custom HTTP headers for Cloudflare Access or other proxy authentication.</p>
+    <p class="text-sm text-fg-muted mb-4">{{ $strings.MessageCustomHeadersHelp || 'Add custom HTTP headers for Cloudflare Access or other proxy authentication.' }}</p>
 
     <!-- Existing headers list -->
     <div v-if="headersList.length" class="mb-4">
-      <div v-for="(header, index) in headersList" :key="index" class="flex items-center py-2 border-b border-fg/10">
-        <div class="flex-grow">
-          <p class="text-sm font-semibold text-fg">{{ header.key }}</p>
+      <p class="text-xs font-semibold text-fg mb-2">{{ $strings.LabelCurrentHeaders || 'Current Headers' }}</p>
+      <div v-for="(header, index) in headersList" :key="index" class="flex items-center py-2 px-2 mb-2 border border-border rounded-md bg-primary">
+        <div class="flex-grow min-w-0">
+          <p class="text-sm font-semibold text-fg truncate">{{ header.key }}</p>
           <p class="text-xs text-fg-muted truncate">{{ header.value }}</p>
         </div>
-        <span class="material-symbols text-error text-xl cursor-pointer" @click="removeHeader(index)">delete</span>
+        <span class="material-symbols text-error text-xl cursor-pointer ml-2 flex-shrink-0" @click="removeHeader(index)">delete</span>
       </div>
     </div>
 
+    <div v-else class="mb-4 py-4 text-center">
+      <p class="text-sm text-fg-muted">{{ $strings.MessageNoCustomHeaders || 'No custom headers configured' }}</p>
+    </div>
+
     <!-- Add new header form -->
-    <div class="mb-4">
-      <p class="text-sm font-semibold text-fg mb-2">Add New Header</p>
+    <div class="mb-4 p-3 border border-border rounded-md bg-bg">
+      <p class="text-sm font-semibold text-fg mb-3">{{ $strings.LabelAddNewHeader || 'Add New Header' }}</p>
       <div class="space-y-2">
-        <ui-text-input v-model="newHeaderKey" :placeholder="'Header Name (e.g., CF-Access-Client-Id)'" @keyup.enter="addHeader" />
-        <ui-text-input v-model="newHeaderValue" :placeholder="'Header Value'" @keyup.enter="addHeader" />
-        <ui-btn small color="success" @click="addHeader" :disabled="!newHeaderKey || !newHeaderValue"> Add Header </ui-btn>
+        <ui-text-input v-model="newHeaderKey" :placeholder="$strings.PlaceholderHeaderName || 'Header Name'" class="w-full" @keyup.enter="addHeader" />
+        <ui-text-input v-model="newHeaderValue" :placeholder="$strings.PlaceholderHeaderValue || 'Header Value'" class="w-full" @keyup.enter="addHeader" />
+        <ui-btn small color="primary" @click="addHeader" :disabled="!newHeaderKey || !newHeaderValue" class="w-full">
+          {{ $strings.ButtonAddHeader || 'Add Header' }}
+        </ui-btn>
       </div>
     </div>
 
     <!-- Save button -->
-    <div class="flex justify-end">
-      <ui-btn color="primary" @click="saveHeaders" :disabled="!hasChanges"> Save Headers </ui-btn>
+    <div class="flex justify-end pt-2 border-t border-border">
+      <ui-btn color="success" @click="saveHeaders" :disabled="!hasChanges" class="w-full">
+        {{ $strings.ButtonSave || 'Save Headers' }}
+      </ui-btn>
     </div>
   </div>
 </template>
@@ -46,12 +52,14 @@ export default {
       headersList: [],
       newHeaderKey: '',
       newHeaderValue: '',
-      hasChanges: false
+      hasChanges: false,
+      initialHeaders: {}
     }
   },
   watch: {
     customHeaders: {
       immediate: true,
+      deep: true,
       handler(val) {
         this.loadHeaders(val)
       }
@@ -63,6 +71,7 @@ export default {
         key,
         value: headers[key]
       }))
+      this.initialHeaders = JSON.parse(JSON.stringify(headers || {}))
       this.hasChanges = false
     },
     addHeader() {
@@ -83,11 +92,19 @@ export default {
 
       this.newHeaderKey = ''
       this.newHeaderValue = ''
-      this.hasChanges = true
+      this.checkForChanges()
     },
     removeHeader(index) {
       this.headersList.splice(index, 1)
-      this.hasChanges = true
+      this.checkForChanges()
+    },
+    checkForChanges() {
+      const currentHeaders = {}
+      this.headersList.forEach((header) => {
+        currentHeaders[header.key] = header.value
+      })
+
+      this.hasChanges = JSON.stringify(currentHeaders) !== JSON.stringify(this.initialHeaders)
     },
     saveHeaders() {
       const headers = {}
@@ -97,6 +114,7 @@ export default {
 
       this.$emit('update', headers)
       this.hasChanges = false
+      this.initialHeaders = JSON.parse(JSON.stringify(headers))
     }
   }
 }
