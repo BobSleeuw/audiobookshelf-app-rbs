@@ -120,6 +120,16 @@ export default function ({ $axios, store, $db }) {
         }
         originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`
 
+        // RE-ADD CUSTOM HEADERS AFTER TOKEN REFRESH
+        const serverConnectionConfig = store.state.user.serverConnectionConfig
+        if (serverConnectionConfig?.customHeaders) {
+          Object.keys(serverConnectionConfig.customHeaders).forEach((key) => {
+            if (serverConnectionConfig.customHeaders[key]) {
+              originalRequest.headers[key] = serverConnectionConfig.customHeaders[key]
+            }
+          })
+        }
+
         // Process any queued requests
         processQueue(null, newAccessToken)
 

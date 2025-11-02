@@ -39,6 +39,19 @@ class ServerSocket extends EventEmitter {
       path: `${serverPath}/socket.io`,
       reconnectionDelayMax: 15000
     }
+
+    // ADD CUSTOM HEADERS TO SOCKET CONNECTION
+    const serverConnectionConfig = this.$store.state.user.serverConnectionConfig
+    if (serverConnectionConfig?.customHeaders) {
+      socketOptions.extraHeaders = {}
+      Object.keys(serverConnectionConfig.customHeaders).forEach((key) => {
+        if (serverConnectionConfig.customHeaders[key]) {
+          socketOptions.extraHeaders[key] = serverConnectionConfig.customHeaders[key]
+          console.log(`[SOCKET] Adding custom header: ${key}`)
+        }
+      })
+    }
+
     this.socket = io(serverHost, socketOptions)
     this.setSocketListeners()
   }

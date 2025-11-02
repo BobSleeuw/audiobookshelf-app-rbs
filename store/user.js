@@ -173,12 +173,24 @@ export const actions = {
 
     const serverAddress = getters.getServerAddress
 
+    const headers = {
+      'Content-Type': 'application/json',
+      'x-refresh-token': refreshToken
+    }
+
+    // ADD CUSTOM HEADERS TO REFRESH REQUEST
+    if (state.serverConnectionConfig?.customHeaders) {
+      Object.keys(state.serverConnectionConfig.customHeaders).forEach((key) => {
+        if (state.serverConnectionConfig.customHeaders[key]) {
+          headers[key] = state.serverConnectionConfig.customHeaders[key]
+          console.log(`[user/refreshToken] Adding custom header: ${key}`)
+        }
+      })
+    }
+
     const response = await CapacitorHttp.post({
       url: `${serverAddress}/auth/refresh`,
-      headers: {
-        'Content-Type': 'application/json',
-        'x-refresh-token': refreshToken
-      },
+      headers,
       data: {}
     })
 

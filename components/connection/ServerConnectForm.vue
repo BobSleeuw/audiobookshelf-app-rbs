@@ -8,10 +8,17 @@
             <span class="material-symbols text-xl text-fg-muted">dns</span>
             <p class="pl-3 pr-6 text-base text-fg">{{ config.name }}</p>
 
-            <div class="absolute top-0 right-0 h-full px-4 flex items-center" @click.stop="editServerConfig(config)">
+            <div class="absolute top-0 right-0 h-full px-4 flex items-center" @click.stop="showServerConfigMenu(config)">
               <span class="material-symbols text-2xl text-fg-muted">more_vert</span>
             </div>
           </div>
+
+          <!-- Show custom headers indicator -->
+          <div v-if="config.customHeaders && Object.keys(config.customHeaders).length" class="flex items-center mt-2 ml-7">
+            <span class="material-symbols text-sm text-success mr-1">check_circle</span>
+            <p class="text-xs text-success">{{ Object.keys(config.customHeaders).length }} custom header(s) configured</p>
+          </div>
+
           <!-- warning message if server connection config is using an old user id -->
           <div v-if="!checkIdUuid(config.userId)" class="flex flex-nowrap justify-between items-center space-x-4 pt-4">
             <p class="text-xs text-warning">{{ $strings.MessageOldServerConnectionWarning }}</p>
@@ -173,6 +180,23 @@ export default {
         message: this.$strings.MessageOldServerConnectionWarningHelp,
         cancelText: this.$strings.ButtonOk
       })
+    },
+    async showServerConfigMenu(config) {
+      await this.$hapticsImpact()
+      const { value } = await Dialog.confirm({
+        title: config.name,
+        message: 'Choose an action',
+        okButtonTitle: 'Edit Settings',
+        cancelButtonTitle: 'Connect'
+      })
+
+      if (value) {
+        // Edit - show the server address form with Advanced button
+        this.editServerConfig(config)
+      } else {
+        // Connect normally
+        this.connectToServer(config)
+      }
     },
     async showOldAuthWarningDialog() {
       const confirmResult = await Dialog.confirm({
@@ -518,13 +542,13 @@ export default {
       }
     },
     async editServerConfig(serverConfig) {
+      await this.$hapticsImpact()
       this.serverConfig = {
         ...serverConfig
       }
-
-      if (await this.submit(true)) {
-        this.showForm = true
-      }
+      this.showForm = true
+      this.showAuth = false // Show the server address form first
+      this.error = null
     },
     async newServerConfigClick() {
       await this.$hapticsImpact()
