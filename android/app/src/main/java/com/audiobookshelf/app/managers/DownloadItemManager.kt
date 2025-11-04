@@ -131,8 +131,12 @@ class DownloadItemManager(
             tag,
             "Start internal download to destination path ${downloadItemPart.finalDestinationPath} from ${downloadItemPart.serverUrl}"
     )
+
+    // Get custom headers from the current server connection config
+    val customHeaders = DeviceManager.serverConnectionConfig?.customHeaders
+
     InternalDownloadManager(fileOutputStream, internalProgressCallback)
-            .download(downloadItemPart.serverUrl)
+            .download(downloadItemPart.serverUrl, customHeaders)
     downloadItemPart.downloadId = 1
     currentDownloadItemParts.add(downloadItemPart)
   }

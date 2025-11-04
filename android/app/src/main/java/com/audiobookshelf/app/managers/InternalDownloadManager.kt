@@ -25,11 +25,21 @@ class InternalDownloadManager(
    * Downloads a file from the given URL.
    *
    * @param url The URL to download the file from.
+   * @param customHeaders Optional custom headers to include in the request.
    * @throws IOException If an I/O error occurs.
    */
   @Throws(IOException::class)
-  fun download(url: String) {
-    val request: Request = Request.Builder().url(url).addHeader("Accept-Encoding", "identity").build()
+  fun download(url: String, customHeaders: Map<String, String>? = null) {
+    val requestBuilder = Request.Builder()
+      .url(url)
+      .addHeader("Accept-Encoding", "identity")
+
+    // Add custom headers if they exist
+    customHeaders?.forEach { (key, value) ->
+      requestBuilder.addHeader(key, value)
+    }
+
+    val request = requestBuilder.build()
     client.newCall(request)
             .enqueue(
                     object : Callback {

@@ -89,6 +89,13 @@ data class DownloadItemPart(
     dlRequest.setDescription("Downloading to $localFolderName with filename $filename")
     dlRequest.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
     dlRequest.setDestinationUri(destinationUri)
+
+    // Add custom headers if they exist
+    val customHeaders = DeviceManager.serverConnectionConfig?.customHeaders
+    customHeaders?.forEach { (key, value) ->
+      dlRequest.addRequestHeader(key, value)
+    }
+
     return dlRequest
   }
 }
