@@ -67,8 +67,8 @@ export default {
   },
   methods: {
     loadHeaders(headers) {
-      console.log('\n', Object.keys(headers))
-      console.log('\n', Object.values(headers))
+      console.log('\n Keys:\n', Object.keys(headers))
+      console.log('\n Values: \n', Object.values(headers))
       this.headersList = Object.keys(headers || {}).map((key) => ({
         key,
         value: headers[key]
