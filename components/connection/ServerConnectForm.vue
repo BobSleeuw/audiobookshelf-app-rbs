@@ -8,7 +8,7 @@
             <span class="material-symbols text-xl text-fg-muted">dns</span>
             <p class="pl-3 pr-6 text-base text-fg">{{ config.name }}</p>
 
-            <div class="absolute top-0 right-0 h-full px-4 flex items-center" @click.stop="showServerConfigMenu(config)">
+            <div class="absolute top-0 right-0 h-full px-4 flex items-center" @click.stop="editServerConfig(config)">
               <span class="material-symbols text-2xl text-fg-muted">more_vert</span>
             </div>
           </div>
@@ -16,7 +16,8 @@
           <!-- Show custom headers indicator -->
           <div v-if="config.customHeaders && Object.keys(config.customHeaders).length" class="flex items-center mt-2 ml-7">
             <span class="material-symbols text-sm text-success mr-1">check_circle</span>
-            <p class="text-xs text-success">{{ Object.keys(config.customHeaders).length }} custom header(s) configured</p>
+            <p v-if="config.customHeaders && Object.keys(config.customHeaders).length == 1" class="text-xs text-success">{{ '1 custom header configured' }}</p>
+            <p v-if="config.customHeaders && Object.keys(config.customHeaders).length > 1" class="text-xs text-success">{{ Object.keys(config.customHeaders).length }} custom headers configured</p>
           </div>
 
           <!-- warning message if server connection config is using an old user id -->
@@ -48,7 +49,7 @@
           <div class="flex items-center mt-3 mb-2">
             <ui-btn small color="primary" outlined @click="showCustomHeadersModal = true" type="button" :disabled="processing || !networkConnected">
               <span class="material-symbols text-base mr-1">settings</span>
-              {{ $strings.ButtonAdvancedSettings || 'Advanced' }}
+              {{ $strings.ButtonAdvancedSettings || 'Custom Headers' }}
             </ui-btn>
             <p v-if="serverConfig.customHeaders && Object.keys(serverConfig.customHeaders).length" class="text-xs text-success ml-2">{{ Object.keys(serverConfig.customHeaders).length }} {{ $strings.LabelCustomHeaderConfigured || 'custom header(s) configured' }}</p>
           </div>
@@ -72,6 +73,16 @@
           <form v-if="isLocalAuthEnabled" @submit.prevent="submitAuth" class="pt-3">
             <ui-text-input v-model="serverConfig.username" :disabled="processing" :placeholder="$strings.LabelUsername" class="w-full mb-2 text-lg" />
             <ui-text-input v-model="password" type="password" :disabled="processing" :placeholder="$strings.LabelPassword" class="w-full mb-2 text-lg" />
+
+            <!-- Custom Headers Button on auth screen -->
+            <div class="flex items-center mt-3 mb-2">
+              <ui-btn small color="primary" outlined @click="showCustomHeadersModal = true" type="button" :disabled="processing">
+                <span class="material-symbols text-base mr-1">settings</span>
+                {{ $strings.ButtonAdvancedSettings || 'Custom headers' }}
+              </ui-btn>
+              <p v-if="serverConfig.customHeaders && Object.keys(serverConfig.customHeaders).length == 1" class="text-xs text-success ml-2">{{ '1 custom header configured' }}</p>
+              <p v-if="serverConfig.customHeaders && Object.keys(serverConfig.customHeaders).length > 1" class="text-xs text-success ml-2">{{ Object.keys(serverConfig.customHeaders).length }} {{ $strings.LabelCustomHeaderConfigured || 'custom headers configured' }}</p>
+            </div>
 
             <div class="flex items-center pt-2">
               <ui-icon-btn v-if="serverConfig.id" small bg-color="error" icon="delete" type="button" @click="removeServerConfigClick" />
@@ -180,23 +191,6 @@ export default {
         message: this.$strings.MessageOldServerConnectionWarningHelp,
         cancelText: this.$strings.ButtonOk
       })
-    },
-    async showServerConfigMenu(config) {
-      await this.$hapticsImpact()
-      const { value } = await Dialog.confirm({
-        title: config.name,
-        message: 'Choose an action',
-        okButtonTitle: 'Edit Settings',
-        cancelButtonTitle: 'Connect'
-      })
-
-      if (value) {
-        // Edit - show the server address form with Advanced button
-        this.editServerConfig(config)
-      } else {
-        // Connect normally
-        this.connectToServer(config)
-      }
     },
     async showOldAuthWarningDialog() {
       const confirmResult = await Dialog.confirm({
@@ -479,7 +473,7 @@ export default {
         address: null,
         userId: null,
         username: null,
-        customHeaders: null
+        customHeaders: {}
       }
     },
     async connectToServer(config) {
@@ -533,7 +527,7 @@ export default {
           address: null,
           userId: null,
           username: null,
-          customHeaders: null
+          customHeaders: {}
         }
         this.password = null
         this.processing = false
@@ -546,9 +540,10 @@ export default {
       this.serverConfig = {
         ...serverConfig
       }
-      this.showForm = true
-      this.showAuth = false // Show the server address form first
-      this.error = null
+
+      if (await this.submit(true)) {
+        this.showForm = true
+      }
     },
     async newServerConfigClick() {
       await this.$hapticsImpact()
@@ -556,7 +551,7 @@ export default {
         address: '',
         userId: '',
         username: '',
-        customHeaders: {} // Make sure this is initialized as empty object, not null
+        customHeaders: {}
       }
       this.showForm = true
       this.showAuth = false

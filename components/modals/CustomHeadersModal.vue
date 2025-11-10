@@ -1,5 +1,5 @@
 <template>
-  <modals-modal v-model="show" :width="400" height="100%">
+  <modals-modal v-model="show" :width="'90%'" :max-width="'420px'" height="100%">
     <template #outer>
       <div class="absolute top-11 left-4 z-40">
         <p class="text-white text-2xl truncate">{{ $strings.HeaderCustomHeaders || 'Custom Headers' }}</p>
@@ -8,7 +8,7 @@
 
     <div class="w-full h-full overflow-hidden absolute top-0 left-0 flex items-center justify-center" @click="show = false">
       <div class="w-full overflow-x-hidden overflow-y-auto bg-primary rounded-lg border border-border p-4" style="max-height: 80%" @click.stop>
-        <connection-custom-headers-settings :custom-headers="localHeaders" @update="handleUpdate" />
+        <connection-custom-headers-settings :custom-headers="localHeaders" @save="handleUpdate" />
       </div>
     </div>
   </modals-modal>

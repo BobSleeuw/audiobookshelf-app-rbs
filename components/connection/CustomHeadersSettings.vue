@@ -112,7 +112,7 @@ export default {
         headers[header.key] = header.value
       })
 
-      this.$emit('update', headers)
+      this.$emit('save', headers)
       this.hasChanges = false
       this.initialHeaders = JSON.parse(JSON.stringify(headers))
     }
