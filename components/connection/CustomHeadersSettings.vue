@@ -67,11 +67,15 @@ export default {
   },
   methods: {
     loadHeaders(headers) {
+      console.log('\n', Object.keys(headers))
+      console.log('\n', Object.values(headers))
       this.headersList = Object.keys(headers || {}).map((key) => ({
         key,
         value: headers[key]
       }))
+      console.log('[CustomHeadersSettings]\n load-headersList =\n', JSON.stringify(this.headersList, null, 2))
       this.initialHeaders = JSON.parse(JSON.stringify(headers || {}))
+      console.log('[CustomHeadersSettings]\n load-initialheaders =\n', JSON.stringify(this.initialHeaders, null, 2))
       this.hasChanges = false
     },
     addHeader() {
@@ -95,7 +99,9 @@ export default {
       this.checkForChanges()
     },
     removeHeader(index) {
+      console.log('[CustomHeadersSettings]\n remove-headersbefore =\n', JSON.stringify(this.headersList, null, 2))
       this.headersList.splice(index, 1)
+      console.log('[CustomHeadersSettings]\n remove-headersafter =\n', JSON.stringify(this.headersList, null, 2))
       this.checkForChanges()
     },
     checkForChanges() {
@@ -104,9 +110,13 @@ export default {
         currentHeaders[header.key] = header.value
       })
 
+      //this.currentHeaders = JSON.parse(JSON.stringify(headers || {}))
+      console.log('[CustomHeadersSettings]\n edit-initialheaders =\n', JSON.stringify(this.initialHeaders, null, 2))
+      console.log('[CustomHeadersSettings]\n edit-currentheaders =\n', JSON.stringify(currentHeaders, null, 2))
       this.hasChanges = JSON.stringify(currentHeaders) !== JSON.stringify(this.initialHeaders)
     },
     saveHeaders() {
+      console.log('[CustomHeadersSettings]\n save-headersList =\n', JSON.stringify(this.headersList, null, 2))
       const headers = {}
       this.headersList.forEach((header) => {
         headers[header.key] = header.value
