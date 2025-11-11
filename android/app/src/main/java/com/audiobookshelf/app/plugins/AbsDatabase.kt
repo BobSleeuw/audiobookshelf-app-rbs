@@ -162,6 +162,12 @@ class AbsDatabase : Plugin() {
           shouldSave = true
         }
 
+        // Update customHeaders even if other fields haven't changed
+        if (serverConnectionConfig?.customHeaders != serverConfigPayload.customHeaders) {
+          serverConnectionConfig?.customHeaders = serverConfigPayload.customHeaders
+          shouldSave = true
+        }
+
         // Update refresh token if provided
         if (!refreshToken.isNullOrEmpty()) {
           val stored = secureStorage.storeRefreshToken(serverConnectionConfig!!.id, refreshToken)
@@ -198,6 +204,7 @@ class AbsDatabase : Plugin() {
       if (DeviceManager.serverConnectionConfig?.id == serverConnectionConfigId) {
         DeviceManager.serverConnectionConfig = null
       }
+      //notifyListeners("clearConnectionState", JSObject())
       call.resolve()
     }
   }
@@ -244,6 +251,7 @@ class AbsDatabase : Plugin() {
       DeviceManager.serverConnectionConfig = null
       DeviceManager.deviceData.lastServerConnectionConfigId = null
       DeviceManager.dbManager.saveDeviceData(DeviceManager.deviceData)
+      //notifyListeners("clearConnectionState", JSObject())
       call.resolve()
     }
   }
