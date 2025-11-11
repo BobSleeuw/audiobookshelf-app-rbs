@@ -204,7 +204,6 @@ class AbsDatabase : Plugin() {
       if (DeviceManager.serverConnectionConfig?.id == serverConnectionConfigId) {
         DeviceManager.serverConnectionConfig = null
       }
-      //notifyListeners("clearConnectionState", JSObject())
       call.resolve()
     }
   }
@@ -251,7 +250,6 @@ class AbsDatabase : Plugin() {
       DeviceManager.serverConnectionConfig = null
       DeviceManager.deviceData.lastServerConnectionConfigId = null
       DeviceManager.dbManager.saveDeviceData(DeviceManager.deviceData)
-      //notifyListeners("clearConnectionState", JSObject())
       call.resolve()
     }
   }
