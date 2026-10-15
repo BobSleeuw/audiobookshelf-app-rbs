@@ -15,6 +15,7 @@ export const state = () => ({
   socketConnected: false,
   networkConnected: false,
   networkConnectionType: null,
+  networkChangeCounter: 0,
   isNetworkUnmetered: true,
   isFirstLoad: true,
   isFirstAudioLoad: true,
@@ -190,6 +191,7 @@ export const mutations = {
       state.networkConnected = true
     }
     state.networkConnectionType = val.connectionType
+    state.networkChangeCounter++
   },
   setIsNetworkUnmetered(state, val) {
     state.isNetworkUnmetered = val

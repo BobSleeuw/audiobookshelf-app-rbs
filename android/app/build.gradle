@@ -22,6 +22,12 @@ kotlin {
   jvmToolchain(17)
 }
 
+def keystoreProps = new Properties()
+def keystoreFile = rootProject.file('keystore.properties')
+if (keystoreFile.exists()) {
+  keystoreFile.withInputStream { keystoreProps.load(it) }
+}
+
 android {
   namespace 'com.audiobookshelf.app'
   buildFeatures {
@@ -33,19 +39,29 @@ android {
   }
   compileSdk rootProject.ext.compileSdkVersion
   defaultConfig {
-    applicationId "com.audiobookshelf.app"
+    applicationId "com.rbs.abs"
     minSdkVersion rootProject.ext.minSdkVersion
     targetSdkVersion rootProject.ext.targetSdkVersion
-    versionCode 121
-    versionName "0.14.2-beta"
+    versionCode 123
+    versionName "0.14.2-rbs.3"
     testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     manifestPlaceholders = [
-      "appAuthRedirectScheme": "com.audiobookshelf.app"
+      "appAuthRedirectScheme": "com.rbs.abs"
     ]
     aaptOptions {
       // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
       // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
       ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+    }
+  }
+  signingConfigs {
+    if (keystoreFile.exists()) {
+      release {
+        storeFile file(keystoreProps['storeFile'])
+        storePassword keystoreProps['storePassword']
+        keyAlias keystoreProps['keyAlias']
+        keyPassword keystoreProps['keyPassword']
+      }
     }
   }
   buildTypes {
@@ -56,6 +72,7 @@ android {
       proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
     }
     release {
+      if (keystoreFile.exists()) signingConfig signingConfigs.release
       minifyEnabled false
       proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
     }

@@ -9,6 +9,7 @@ import com.audiobookshelf.app.device.DeviceManager
 import com.audiobookshelf.app.media.MediaEventManager
 import com.audiobookshelf.app.server.ApiHandler
 import com.audiobookshelf.app.managers.SecureStorage
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.core.json.JsonReadFeature
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
@@ -30,6 +31,7 @@ class AbsDatabase : Plugin() {
   data class LocalMediaProgressPayload(val value:List<LocalMediaProgress>)
   data class LocalLibraryItemsPayload(val value:List<LocalLibraryItem>)
   data class LocalFoldersPayload(val value:List<LocalFolder>)
+  @JsonIgnoreProperties(ignoreUnknown = true)
   data class ServerConnConfigPayload(val id:String?, val index:Int, val name:String?, val userId:String, val username:String, var version:String, val token:String, val refreshToken:String?, val address:String?, val customHeaders:Map<String,String>?)
 
   override fun load() {
@@ -180,6 +182,33 @@ class AbsDatabase : Plugin() {
       DeviceManager.serverConnectionConfig = serverConnectionConfig
       call.resolve(JSObject(jacksonMapper.writeValueAsString(DeviceManager.serverConnectionConfig)))
     }
+  }
+
+  /**
+   * Updates the address in use and/or the local network settings of a saved server, without touching the login.
+   * Accepts: id, address, remoteAddress, localAddress (empty clears), localSsids (array)
+   */
+  @PluginMethod
+  fun updateServerAddresses(call: PluginCall) {
+    val id = call.getString("id")
+    val config = DeviceManager.deviceData.serverConnectionConfigs.find { it.id == id }
+    if (config == null) {
+      call.reject("Server connection config not found")
+      return
+    }
+    val data = call.data
+    if (data.has("address")) call.getString("address")?.takeIf { it.isNotBlank() }?.let { config.address = it }
+    if (data.has("remoteAddress")) config.remoteAddress = call.getString("remoteAddress")?.takeIf { it.isNotBlank() }
+    if (data.has("localAddress")) config.localAddress = call.getString("localAddress")?.takeIf { it.isNotBlank() }
+    if (data.has("localSsids")) {
+      val ssids = mutableListOf<String>()
+      call.getArray("localSsids")?.let { arr ->
+        for (i in 0 until arr.length()) arr.optString(i)?.trim()?.takeIf { it.isNotEmpty() }?.let { ssids.add(it) }
+      }
+      config.localSsids = ssids
+    }
+    DeviceManager.dbManager.saveDeviceData(DeviceManager.deviceData)
+    call.resolve(JSObject(jacksonMapper.writeValueAsString(config)))
   }
 
   @PluginMethod

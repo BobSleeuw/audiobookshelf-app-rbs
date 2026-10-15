@@ -46,6 +46,14 @@ class MediaSessionPlaybackPreparer(var playerNotificationService:PlayerNotificat
   override fun onPrepareFromMediaId(mediaId: String, playWhenReady: Boolean, extras: Bundle?) {
     Log.d(tag, "ON PREPARE FROM MEDIA ID $mediaId $playWhenReady")
 
+    // Volume boost menu items are selectable "media" that only change the Android Auto boost
+    if (mediaId.startsWith(BOOST_ID_PREFIX)) {
+      mediaId.removePrefix(BOOST_ID_PREFIX).toIntOrNull()?.let {
+        VolumeBooster.setAndroidAutoBoost(playerNotificationService.getContext(), it)
+      }
+      return
+    }
+
     val libraryItemWrapper: LibraryItemWrapper?
     var podcastEpisode: PodcastEpisode? = null
 

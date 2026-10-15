@@ -8,12 +8,25 @@
             <div class="grow inline-flex items-center overflow-hidden">
               <p class="text-base text-fg truncate">{{ config.name }}</p>
             </div>
+            <div class="h-full w-6 flex items-center" @click.stop="testSavedServer(config)">
+              <span v-if="serverTests[config.id] && serverTests[config.id].testing" class="material-symbols text-2xl text-fg-muted animate-pulse">network_check</span>
+              <span v-else class="material-symbols text-2xl text-fg-muted">network_check</span>
+            </div>
+            <div class="h-full w-6 flex items-center" @click.stop="openLocalNetwork(config)">
+              <span class="material-symbols text-2xl" :class="config.localAddress ? 'text-success' : 'text-fg-muted'">wifi</span>
+            </div>
             <div class="h-full w-6 flex items-center" @click.stop="editServerConfig(config)">
               <span class="material-symbols text-2xl text-fg-muted">more_vert</span>
             </div>
             <div class="h-full w-6 flex items-center" @click.stop="removeServerConfigClick(config)">
               <span class="material-symbols fill text-1.5xl text-fg-muted">delete</span>
             </div>
+          </div>
+          <!-- connection test result -->
+          <div v-if="serverTests[config.id] && serverTests[config.id].lines.length" class="pt-2 space-y-1">
+            <p v-for="(line, i) in serverTests[config.id].lines" :key="i" class="text-xs" :class="line.ok ? 'text-success' : 'text-error'">
+              <span v-if="line.label" class="text-fg-muted">{{ line.label }}: </span>{{ line.text }}
+            </p>
           </div>
           <!-- warning message if server connection config is using an old user id -->
           <div v-if="!checkIdUuid(config.userId)" class="flex flex-nowrap justify-between items-center space-x-4 pt-4">
@@ -39,9 +52,13 @@
           </div>
           <h2 class="text-lg leading-7 mb-2">{{ $strings.LabelServerAddress }}</h2>
           <ui-text-input v-model="serverConfig.address" :disabled="processing || !networkConnected || !!serverConfig.id" placeholder="http://55.55.55.55:13378" type="url" class="w-full h-10" />
-          <div class="flex justify-end items-center mt-6">
+          <div class="flex items-center mt-6">
+            <ui-btn :disabled="processing || !!serverConfig.id" type="button" :padding-x="3" class="h-10" @click="addCustomHeaders">{{ $strings.HeaderCustomHeaders }}<span v-if="customHeadersCount" class="ml-1">({{ customHeadersCount }})</span></ui-btn>
+            <ui-btn :disabled="processing || testingAddress || !networkConnected || !serverConfig.address" type="button" :padding-x="3" class="h-10 ml-2" @click="testServerAddress">{{ $strings.ButtonTest }}</ui-btn>
+            <div class="flex-grow" />
             <ui-btn :disabled="processing || !networkConnected" type="submit" :padding-x="3" class="h-10">{{ networkConnected ? $strings.ButtonSubmit : $strings.MessageNoNetworkConnection }}</ui-btn>
           </div>
+          <p v-if="addressTestText" class="text-sm mt-3" :class="addressTestOk ? 'text-success' : 'text-error'">{{ addressTestText }}</p>
         </form>
         <!-- username/password and auth methods -->
         <template v-else>
@@ -88,6 +105,7 @@
     <p v-if="!serverConnectionConfigs.length" class="mt-2 text-center text-error" v-html="$strings.MessageAudiobookshelfServerRequired" />
 
     <modals-custom-headers-modal v-model="showAddCustomHeaders" :custom-headers.sync="serverConfig.customHeaders" />
+    <modals-local-network-modal v-model="showLocalNetwork" :config="localNetworkConfig" />
   </div>
 </template>
 
@@ -115,6 +133,12 @@ export default {
       error: null,
       showForm: false,
       showAddCustomHeaders: false,
+      showLocalNetwork: false,
+      testingAddress: false,
+      addressTestText: '',
+      addressTestOk: false,
+      serverTests: {},
+      localNetworkConfig: null,
       authMethods: [],
       oauth: {
         state: null,
@@ -126,6 +150,9 @@ export default {
     }
   },
   computed: {
+    customHeadersCount() {
+      return Object.keys(this.serverConfig.customHeaders || {}).length
+    },
     deviceData() {
       return this.$store.state.deviceData || {}
     },
@@ -298,6 +325,7 @@ export default {
       try {
         const response = await CapacitorHttp.get({
           url: backendEndpoint,
+          headers: this.serverConfig.customHeaders || {},
           disableRedirects: true,
           webFetchExtra: {
             redirect: 'manual'
@@ -395,7 +423,8 @@ export default {
       try {
         // Returns the same user response payload as /login
         const response = await CapacitorHttp.get({
-          url: backendEndpoint
+          url: backendEndpoint,
+          headers: this.serverConfig.customHeaders || {}
         })
         // v2.26.0+ returns accessToken and refreshToken on user object
         if (!response.data?.user?.token && !response.data?.user?.accessToken) {
@@ -433,6 +462,34 @@ export default {
         this.oauth.challenge = null
       }
     },
+    /** Tests the address typed in the new server form (with its custom headers) */
+    async testServerAddress() {
+      const address = this.$localNetwork.normalizeAddress(this.serverConfig.address)
+      if (!address) return
+      this.testingAddress = true
+      this.addressTestText = ''
+      const result = await this.$localNetwork.testConnection(address, this.serverConfig.customHeaders)
+      this.addressTestOk = result.ok
+      this.addressTestText = this.$localNetwork.describeTest(result, this.$strings)
+      this.testingAddress = false
+    },
+    /** Tests a saved server: its normal address and, when set, its local address */
+    async testSavedServer(config) {
+      this.$set(this.serverTests, config.id, { testing: true, lines: [] })
+      const remote = config.remoteAddress || config.address
+      const lines = []
+      const remoteResult = await this.$localNetwork.testConnection(remote, config.customHeaders)
+      lines.push({ label: config.localAddress ? this.$strings.LabelRemoteAddress : '', ok: remoteResult.ok, text: this.$localNetwork.describeTest(remoteResult, this.$strings) })
+      if (config.localAddress) {
+        const localResult = await this.$localNetwork.testConnection(config.localAddress)
+        lines.push({ label: this.$strings.LabelLocalAddress, ok: localResult.ok, text: this.$localNetwork.describeTest(localResult, this.$strings) })
+      }
+      this.$set(this.serverTests, config.id, { testing: false, lines })
+    },
+    openLocalNetwork(config) {
+      this.localNetworkConfig = config
+      this.showLocalNetwork = true
+    },
     addCustomHeaders() {
       this.showAddCustomHeaders = true
     },
@@ -454,7 +511,7 @@ export default {
         ...config
       }
       this.showForm = true
-      var success = await this.pingServerAddress(config.address)
+      var success = await this.pingServerAddress(config.address, config.customHeaders || {})
       this.processing = false
       console.log(`[ServerConnectForm] pingServer result ${success}`)
       if (!success) {
@@ -615,7 +672,7 @@ export default {
      *    HttpResponse.data is {isInit:boolean, language:string, authMethods:string[]}>
      */
     async getServerAddressStatus(address) {
-      return this.getRequest(`${address}/status`)
+      return this.getRequest(`${address}/status`, this.serverConfig.customHeaders || {})
     },
     pingServerAddress(address, customHeaders) {
       return this.getRequest(`${address}/ping`, customHeaders)

@@ -1,5 +1,6 @@
 package com.audiobookshelf.app.player
 
+import com.audiobookshelf.app.server.CustomHeaders
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
@@ -18,7 +19,7 @@ suspend fun resolveUriAsBitmap(context: Context, uri: Uri): Bitmap? {
     try {
       Glide.with(context)
         .asBitmap()
-        .load(uri)
+        .load(if (uri.scheme == "http" || uri.scheme == "https") CustomHeaders.glideModel(uri.toString()) else uri)
         .placeholder(R.drawable.icon)
         .error(R.drawable.icon)
         .submit()

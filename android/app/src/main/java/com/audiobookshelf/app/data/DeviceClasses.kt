@@ -59,7 +59,12 @@ data class ServerConnectionConfig(
         var userId: String,
         var username: String,
         var token: String,
-        var customHeaders: Map<String, String>?
+        var customHeaders: Map<String, String>?,
+        // ABS-RBS: address used outside the local network, and the one used on the local network.
+        // `address` always holds the address currently in use.
+        var remoteAddress: String? = null,
+        var localAddress: String? = null,
+        var localSsids: List<String>? = null
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)

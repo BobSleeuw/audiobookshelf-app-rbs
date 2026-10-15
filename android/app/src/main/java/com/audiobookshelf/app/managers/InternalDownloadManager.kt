@@ -1,5 +1,6 @@
 package com.audiobookshelf.app.managers
 
+import com.audiobookshelf.app.server.CustomHeaders
 import com.audiobookshelf.app.plugins.AbsLogger
 import java.io.File
 import java.io.FileOutputStream
@@ -198,6 +199,7 @@ class InternalDownloadManager(
                     .connectTimeout(30, TimeUnit.SECONDS)
                     .readTimeout(60, TimeUnit.SECONDS)
                     .writeTimeout(60, TimeUnit.SECONDS)
+                    .addInterceptor(CustomHeaders.Interceptor())
                     .build()
   }
 }

@@ -159,6 +159,19 @@
       </div>
     </div>
 
+    <!-- Volume boost -->
+    <settings-volume-boost-settings v-if="!isiOS" />
+
+    <!-- Bluetooth auto play -->
+    <template v-if="!isiOS">
+      <p class="uppercase text-xs font-semibold text-fg-muted mb-2 mt-10">{{ $strings.HeaderBluetoothAutoPlay }}</p>
+      <nuxt-link to="/bluetooth" class="py-3 flex items-center">
+        <span class="material-symbols text-2xl text-fg-muted">bluetooth</span>
+        <p class="pl-4 flex-grow">{{ $strings.MessageBluetoothAutoPlayDescription }}</p>
+        <span class="material-symbols text-fg-muted">chevron_right</span>
+      </nuxt-link>
+    </template>
+
     <!-- Android Auto settings -->
     <template v-if="!isiOS">
       <p class="uppercase text-xs font-semibold text-fg-muted mb-2 mt-10">{{ $strings.HeaderAndroidAutoSettings }}</p>

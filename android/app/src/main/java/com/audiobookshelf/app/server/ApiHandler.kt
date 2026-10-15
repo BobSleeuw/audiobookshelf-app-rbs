@@ -44,8 +44,8 @@ class ApiHandler(var ctx:Context) {
     }
   }
 
-  private var defaultClient = OkHttpClient()
-  private var pingClient = OkHttpClient.Builder().callTimeout(3, TimeUnit.SECONDS).build()
+  private var defaultClient = OkHttpClient.Builder().addInterceptor(CustomHeaders.Interceptor()).build()
+  private var pingClient = OkHttpClient.Builder().callTimeout(3, TimeUnit.SECONDS).addInterceptor(CustomHeaders.Interceptor()).build()
   private var jacksonMapper = jacksonObjectMapper().enable(JsonReadFeature.ALLOW_UNESCAPED_CONTROL_CHARS.mappedFeature())
   private var secureStorage = SecureStorage(ctx)
 

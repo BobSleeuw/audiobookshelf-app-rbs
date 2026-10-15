@@ -281,6 +281,7 @@ class MediaSessionCallback(var playerNotificationService:PlayerNotificationServi
       CUSTOM_ACTION_SKIP_FORWARD -> onSkipToNext()
       CUSTOM_ACTION_SKIP_BACKWARD -> onSkipToPrevious()
       CUSTOM_ACTION_CHANGE_SPEED -> onChangeSpeed()
+      CUSTOM_ACTION_CHANGE_BOOST -> VolumeBooster.cycleAndroidAutoBoost(playerNotificationService.getContext())
     }
   }
 }

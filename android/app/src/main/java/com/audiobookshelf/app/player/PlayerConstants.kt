@@ -5,6 +5,11 @@ const val CUSTOM_ACTION_JUMP_BACKWARD = "com.audiobookshelf.customAction.jump_ba
 const val CUSTOM_ACTION_SKIP_FORWARD = "com.audiobookshelf.customAction.skip_forward";
 const val CUSTOM_ACTION_SKIP_BACKWARD = "com.audiobookshelf.customAction.skip_backward";
 const val CUSTOM_ACTION_CHANGE_SPEED = "com.audiobookshelf.customAction.change_speed";
+const val CUSTOM_ACTION_CHANGE_BOOST = "com.audiobookshelf.customAction.change_boost";
+
+// Android Auto volume boost menu: browse folder with one selectable item per level
+const val BOOST_ROOT = "__RBS_BOOST__"
+const val BOOST_ID_PREFIX = "__RBS_BOOST__:"
 
 const val PLAYMETHOD_DIRECTPLAY = 0
 const val PLAYMETHOD_DIRECTSTREAM = 1

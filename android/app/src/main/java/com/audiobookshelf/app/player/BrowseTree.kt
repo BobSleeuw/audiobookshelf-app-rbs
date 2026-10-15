@@ -6,6 +6,7 @@ import android.util.Log
 import com.audiobookshelf.app.R
 import com.audiobookshelf.app.data.*
 import com.audiobookshelf.app.media.getUriToDrawable
+import com.audiobookshelf.app.settings.RbsSettingsStore
 
 class BrowseTree(
   val context: Context,
@@ -74,6 +75,15 @@ class BrowseTree(
 
     rootList += downloadsMetadata
 
+    // Volume boost menu (Android Auto boost level)
+    val boostDb = RbsSettingsStore.androidAutoBoostDb(context)
+    val boostMetadata = MediaMetadataCompat.Builder().apply {
+      putString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID, BOOST_ROOT)
+      putString(MediaMetadataCompat.METADATA_KEY_TITLE, "Volume boost: ${if (boostDb > 0) "+$boostDb dB" else "Off"}")
+      putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, getUriToDrawable(context, boostIcon(boostDb)).toString())
+    }.build()
+    rootList += boostMetadata
+
     mediaIdToChildren[AUTO_BROWSE_ROOT] = rootList
   }
 
@@ -85,3 +95,15 @@ const val CONTINUE_ROOT = "__CONTINUE__"
 const val DOWNLOADS_ROOT = "__DOWNLOADS__"
 const val LIBRARIES_ROOT = "__LIBRARIES__"
 const val RECENTLY_ROOT = "__RECENTLY__"
+
+/** Icon resource for a boost level in dB. */
+fun boostIcon(db: Int): Int {
+  return when (VolumeBooster.levelIndex(db)) {
+    0 -> R.drawable.ic_boost_0
+    1 -> R.drawable.ic_boost_1
+    2 -> R.drawable.ic_boost_2
+    3 -> R.drawable.ic_boost_3
+    4 -> R.drawable.ic_boost_4
+    else -> R.drawable.ic_boost_5
+  }
+}

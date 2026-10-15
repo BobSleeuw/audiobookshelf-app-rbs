@@ -8,7 +8,8 @@ export default function ({ store, $db, $socket }, inject) {
       delete options.serverConnectionConfig
 
       let url = _url
-      let headers = {}
+      // User defined headers (e.g. Cloudflare Access service token) are sent with every request to the server
+      let headers = { ...(serverConnectionConfig?.customHeaders || {}) }
       if (!url.startsWith('http') && !url.startsWith('capacitor')) {
         const bearerToken = store.getters['user/getToken']
         if (bearerToken) {
@@ -61,6 +62,7 @@ export default function ({ store, $db, $socket }, inject) {
      * @returns {Promise} - Promise that resolves with the response data
      */
     async handleTokenRefresh(method, url, data, headers, options, serverConnectionConfig) {
+      let refreshSucceeded = false
       try {
         console.log('[nativeHttp] Attempting to refresh token...')
 
@@ -77,11 +79,12 @@ export default function ({ store, $db, $socket }, inject) {
         }
 
         // Attempt to refresh the token
-        const newTokens = await this.refreshAccessToken(refreshToken, serverConnectionConfig.address)
+        const newTokens = await this.refreshAccessToken(refreshToken, serverConnectionConfig.address, serverConnectionConfig.customHeaders)
         if (!newTokens?.accessToken) {
           console.error('[nativeHttp] Failed to refresh access token')
           throw new Error('Failed to refresh access token')
         }
+        refreshSucceeded = true
 
         // Update the store with new tokens
         await this.updateTokens(newTokens, serverConnectionConfig)
@@ -109,7 +112,9 @@ export default function ({ store, $db, $socket }, inject) {
       } catch (error) {
         console.error('[nativeHttp] Token refresh failed:', error)
 
-        // If refresh fails, redirect to login
+        // Only log out when the server actually rejected the refresh token. Network problems, tunnel/proxy errors
+        // (5xx) or a failing retried request must not drop the connection, the caller can simply try again.
+        if (error?.transient || refreshSucceeded) throw error
         await this.handleRefreshFailure(serverConnectionConfig?.id)
         throw error
       }
@@ -121,7 +126,7 @@ export default function ({ store, $db, $socket }, inject) {
      * @param {string} serverAddress - The server address
      * @returns {Promise<Object|null>} - Promise that resolves with new tokens or null
      */
-    async refreshAccessToken(refreshToken, serverAddress) {
+    async refreshAccessToken(refreshToken, serverAddress, customHeaders) {
       try {
         if (!serverAddress) {
           throw new Error('No server address available')
@@ -132,6 +137,7 @@ export default function ({ store, $db, $socket }, inject) {
         const response = await CapacitorHttp.post({
           url: `${serverAddress}/auth/refresh`,
           headers: {
+            ...(customHeaders || {}),
             'Content-Type': 'application/json',
             'x-refresh-token': refreshToken
           },
@@ -140,7 +146,10 @@ export default function ({ store, $db, $socket }, inject) {
 
         if (response.status !== 200) {
           console.error('[nativeHttp] Token refresh request failed:', response.status)
-          return null
+          if (response.status === 401 || response.status === 403) return null
+          const transientError = new Error(`Token refresh failed with status ${response.status}`)
+          transientError.transient = true
+          throw transientError
         }
 
         const userResponseData = response.data
@@ -157,7 +166,11 @@ export default function ({ store, $db, $socket }, inject) {
         }
       } catch (error) {
         console.error('[nativeHttp] Failed to refresh access token:', error)
-        return null
+        // Request errors (offline, timeout, proxy down) are transient, only an explicit rejection returns null
+        if (error?.transient) throw error
+        const transientError = new Error(error?.message || 'Token refresh request failed')
+        transientError.transient = true
+        throw transientError
       }
     },
 

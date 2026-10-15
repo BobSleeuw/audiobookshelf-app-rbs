@@ -1,5 +1,6 @@
 import { io } from 'socket.io-client'
 import EventEmitter from 'events'
+import { createHeaderWebSocketTransport, isNativeWebSocketAvailable } from './nativeWebSocket'
 
 class ServerSocket extends EventEmitter {
   constructor(store) {
@@ -14,6 +15,13 @@ class ServerSocket extends EventEmitter {
     this.lastReconnectAttemptTime = 0
   }
 
+  /** Reconnect now (app resumed, network back) instead of waiting for the socket.io backoff timer */
+  reconnect() {
+    if (!this.socket || this.socket.connected) return
+    console.log('[SOCKET] Manual reconnect')
+    this.socket.connect()
+  }
+
   $on(evt, callback) {
     if (this.socket) this.socket.on(evt, callback)
     else console.error('$on Socket not initialized')
@@ -26,6 +34,11 @@ class ServerSocket extends EventEmitter {
 
   connect(serverAddress, token) {
     this.serverAddress = serverAddress
+    if (this.socket) {
+      // Never leave an old socket connected (and reconnecting) behind
+      this.socket.disconnect()
+      this.removeListeners()
+    }
 
     const serverUrl = new URL(serverAddress)
     const serverHost = `${serverUrl.protocol}//${serverUrl.host}`
@@ -33,11 +46,18 @@ class ServerSocket extends EventEmitter {
 
     console.log(`[SOCKET] Connecting to ${serverHost} with path ${serverPath}/socket.io`)
 
+    // Custom headers (e.g. Cloudflare Access) cannot be sent by a WebView WebSocket, so open it natively
+    const customHeaders = this.$store.state.user.serverConnectionConfig?.customHeaders
+    const useNativeSocket = isNativeWebSocketAvailable() && customHeaders && Object.keys(customHeaders).length > 0
+
     const socketOptions = {
-      transports: ['websocket'],
+      transports: useNativeSocket ? [createHeaderWebSocketTransport(customHeaders)] : ['websocket'],
       upgrade: false,
       path: `${serverPath}/socket.io`,
-      reconnectionDelayMax: 15000
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 10000
     }
     this.socket = io(serverHost, socketOptions)
     this.setSocketListeners()
@@ -51,6 +71,7 @@ class ServerSocket extends EventEmitter {
   setSocketListeners() {
     this.socket.on('connect', this.onConnect.bind(this))
     this.socket.on('disconnect', this.onDisconnect.bind(this))
+    this.socket.on('connect_error', this.onConnectError.bind(this))
     this.socket.on('init', this.onInit.bind(this))
     this.socket.on('auth_failed', this.onAuthFailed.bind(this))
     this.socket.on('user_updated', this.onUserUpdated.bind(this))
@@ -82,6 +103,10 @@ class ServerSocket extends EventEmitter {
     this.sendAuthenticate()
   }
 
+  onConnectError(error) {
+    console.log('[SOCKET] Connect error', error?.message)
+  }
+
   onReconnectAttempt(attemptNumber) {
     const timeSinceLastReconnectAttempt = this.lastReconnectAttemptTime ? Date.now() - this.lastReconnectAttemptTime : 0
     this.lastReconnectAttemptTime = Date.now()
@@ -101,6 +126,10 @@ class ServerSocket extends EventEmitter {
     this.connected = false
     this.$store.commit('setSocketConnected', false)
     this.emit('connection-update', false)
+    // 'io server disconnect' / 'io client disconnect' are not retried by socket.io on its own
+    if (reason === 'io server disconnect' && this.socket) {
+      setTimeout(() => this.reconnect(), 2000)
+    }
   }
 
   onInit(data) {

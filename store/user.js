@@ -176,18 +176,30 @@ export const actions = {
 
     const serverAddress = getters.getServerAddress
 
-    const response = await CapacitorHttp.post({
-      url: `${serverAddress}/auth/refresh`,
-      headers: {
-        'Content-Type': 'application/json',
-        'x-refresh-token': refreshToken
-      },
-      data: {}
-    })
+    let response
+    try {
+      response = await CapacitorHttp.post({
+        url: `${serverAddress}/auth/refresh`,
+        headers: {
+          ...(state.serverConnectionConfig?.customHeaders || {}),
+          'Content-Type': 'application/json',
+          'x-refresh-token': refreshToken
+        },
+        data: {}
+      })
+    } catch (error) {
+      // Offline/timeout/proxy errors are transient and must not log the user out
+      const transientError = new Error(error?.message || 'Token refresh request failed')
+      transientError.transient = true
+      throw transientError
+    }
 
     if (response.status !== 200) {
       console.error('[user] Token refresh request failed:', response.status)
-      return null
+      if (response.status === 401 || response.status === 403) return null
+      const transientError = new Error(`Token refresh failed with status ${response.status}`)
+      transientError.transient = true
+      throw transientError
     }
 
     const userResponseData = response.data

@@ -20,10 +20,14 @@ import com.anggrayudi.storage.SimpleStorageHelper
 import com.audiobookshelf.app.managers.DbManager
 import com.audiobookshelf.app.player.PlayerNotificationService
 import com.audiobookshelf.app.plugins.AbsAudioPlayer
+import com.audiobookshelf.app.plugins.AbsBluetooth
 import com.audiobookshelf.app.plugins.AbsDatabase
 import com.audiobookshelf.app.plugins.AbsDownloader
 import com.audiobookshelf.app.plugins.AbsFileSystem
 import com.audiobookshelf.app.plugins.AbsLogger
+import com.audiobookshelf.app.plugins.AbsRbsSettings
+import com.audiobookshelf.app.plugins.AbsWebSocket
+import com.audiobookshelf.app.server.HeaderInjectingWebViewClient
 import com.getcapacitor.BridgeActivity
 
 
@@ -49,9 +53,15 @@ class MainActivity : BridgeActivity() {
     registerPlugin(AbsFileSystem::class.java)
     registerPlugin(AbsDatabase::class.java)
     registerPlugin(AbsLogger::class.java)
+    registerPlugin(AbsBluetooth::class.java)
+    registerPlugin(AbsRbsSettings::class.java)
+    registerPlugin(AbsWebSocket::class.java)
 
     super.onCreate(savedInstanceState)
     Log.d(tag, "onCreate")
+
+    // Adds user defined headers (e.g. Cloudflare Access) to WebView requests sent to the server
+    bridge.webViewClient = HeaderInjectingWebViewClient(bridge)
 
     // Update the margins to handle edge-to-edge enforced in SDK 35
     // See: https://developer.android.com/develop/ui/views/layout/edge-to-edge

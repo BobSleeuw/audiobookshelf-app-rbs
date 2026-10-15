@@ -37,6 +37,15 @@ class DbService {
     })
   }
 
+  /**
+   * Updates the address in use and/or the local network settings of a saved server (no login needed)
+   * @param {{ id: string, address?: string, remoteAddress?: string, localAddress?: string, localSsids?: string[] }} payload
+   * @returns {Promise<Object>} the updated server connection config
+   */
+  updateServerAddresses(payload) {
+    return AbsDatabase.updateServerAddresses(payload)
+  }
+
   removeServerConnectionConfig(serverConnectionConfigId) {
     return AbsDatabase.removeServerConnectionConfig({ serverConnectionConfigId }).then((data) => {
       console.log('Removed server connection config', serverConnectionConfigId)

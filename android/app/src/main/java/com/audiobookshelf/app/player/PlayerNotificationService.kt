@@ -1,7 +1,10 @@
 package com.audiobookshelf.app.player
 
+import com.audiobookshelf.app.server.CustomHeaders
+import com.audiobookshelf.app.settings.RbsSettingsStore
 import android.annotation.SuppressLint
 import android.app.*
+import android.content.pm.ServiceInfo
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -73,6 +76,7 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
     var isUnmeteredNetwork = false
     var hasNetworkConnectivity = false // Not 100% reliable has internet
     var isSwitchingPlayer = false // Used when switching between cast player and exoplayer
+    const val ACTION_BLUETOOTH_AUTOPLAY = "com.rbs.abs.action.BLUETOOTH_AUTOPLAY"
   }
 
   private val tag = "PlayerNotificationServ"
@@ -168,6 +172,20 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
     isStarted = true
     Log.d(tag, "onStartCommand $startId")
 
+    if (intent?.action == ACTION_BLUETOOTH_AUTOPLAY) {
+      // The Bluetooth device needs a moment before it can output audio, wait before starting playback
+      val delayMs = RbsSettingsStore.bluetoothDelaySeconds(this) * 1000L
+      AbsLogger.info(tag, "Bluetooth auto play: starting playback in ${delayMs}ms")
+      showResumingForegroundNotification()
+      Handler(Looper.getMainLooper()).postDelayed({
+        resumeLastPlaybackSession()
+        // Drop the placeholder notification if nothing started playing
+        Handler(Looper.getMainLooper()).postDelayed({
+          if (currentPlaybackSession == null) stopForeground(true)
+        }, 20000)
+      }, delayMs)
+    }
+
     return START_STICKY
   }
 
@@ -197,6 +215,8 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
     }
 
     Log.d(tag, "onDestroy")
+    VolumeBooster.onChanged = null
+    VolumeBooster.release()
     isStarted = false
     isClosed = true
     DeviceManager.widgetUpdater?.onPlayerChanged(this)
@@ -404,6 +424,25 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
                     .build()
     mPlayer.setHandleAudioBecomingNoisy(true)
     mPlayer.addListener(PlayerListener(this))
+    mPlayer.addListener(object : Player.Listener {
+      override fun onAudioSessionIdChanged(audioSessionId: Int) {
+        VolumeBooster.attach(ctx, audioSessionId)
+      }
+    })
+    VolumeBooster.startMonitoring(ctx)
+    VolumeBooster.onChanged = {
+      // Refresh the Android Auto boost button and menu
+      Handler(Looper.getMainLooper()).post {
+        try {
+          mediaSessionConnector.invalidateMediaSessionPlaybackState()
+          notifyChildrenChanged(AUTO_MEDIA_ROOT)
+          notifyChildrenChanged(BOOST_ROOT)
+        } catch (e: Exception) {
+          Log.e(tag, "Failed to refresh boost UI: ${e.message}")
+        }
+      }
+    }
+    VolumeBooster.attach(ctx, mPlayer.audioSessionId)
     val audioAttributes: AudioAttributes =
             AudioAttributes.Builder()
                     .setUsage(C.USAGE_MEDIA)
@@ -525,6 +564,7 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
         }
 
         dataSourceFactory.setUserAgent(channelId)
+        dataSourceFactory.setDefaultRequestProperties(CustomHeaders.forActiveServer())
         mediaSource =
                 ProgressiveMediaSource.Factory(dataSourceFactory, extractorsFactory)
                         .createMediaSource(mediaItems[0])
@@ -533,7 +573,7 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
         val dataSourceFactory = DefaultHttpDataSource.Factory()
         dataSourceFactory.setUserAgent(channelId)
         dataSourceFactory.setDefaultRequestProperties(
-                hashMapOf("Authorization" to "Bearer ${DeviceManager.token}")
+                CustomHeaders.forActiveServer() + hashMapOf("Authorization" to "Bearer ${DeviceManager.token}")
         )
         mediaSource = HlsMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItems[0])
       }
@@ -586,7 +626,8 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
             mutableListOf(
                     JumpBackwardCustomActionProvider(),
                     JumpForwardCustomActionProvider(),
-                    ChangePlaybackSpeedCustomActionProvider() // Will be pushed to far left
+                    ChangePlaybackSpeedCustomActionProvider(), // Will be pushed to far left
+                    ChangeBoostCustomActionProvider()
             )
     if (playbackSession.mediaPlayer != PLAYER_CAST && mediaItems.size > 1) {
       customActionProviders.addAll(
@@ -947,6 +988,70 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
     return false
   }
 
+  /**
+   * Android requires a foreground service started from the background to show a notification within seconds,
+   * which is before the delayed Bluetooth auto play begins. The player notification replaces this one (same id).
+   */
+  private fun showResumingForegroundNotification() {
+    try {
+      val notification = NotificationCompat.Builder(this, channelId)
+              .setSmallIcon(R.drawable.icon_monochrome)
+              .setContentTitle(getString(R.string.app_name))
+              .setContentText("Resuming playback…")
+              .setPriority(NotificationCompat.PRIORITY_LOW)
+              .setOngoing(true)
+              .build()
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        startForeground(notificationId, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+      } else {
+        startForeground(notificationId, notification)
+      }
+    } catch (e: Exception) {
+      Log.e(tag, "Failed to show resuming notification: ${e.message}")
+    }
+  }
+
+  /**
+   * Starts playing the book that was last played. Used when a Bluetooth device enabled for auto play connects.
+   * Resumes the open session if there is one, otherwise rebuilds one from the last saved playback session.
+   */
+  fun resumeLastPlaybackSession() {
+    if (currentPlaybackSession != null) {
+      AbsLogger.info("PlayerNotificationService", "resumeLastPlaybackSession: Playing current session")
+      play()
+      return
+    }
+
+    val last = DeviceManager.deviceData.lastPlaybackSession
+    if (last == null) {
+      AbsLogger.info("PlayerNotificationService", "resumeLastPlaybackSession: No previous playback session")
+      return
+    }
+    val rate = mediaManager.getSavedPlaybackRate()
+
+    if (last.isLocal) {
+      AbsLogger.info("PlayerNotificationService", "resumeLastPlaybackSession: Resuming local session ${last.displayTitle}")
+      preparePlayer(last, true, rate)
+      return
+    }
+
+    val config = DeviceManager.deviceData.serverConnectionConfigs.find { it.id == last.serverConnectionConfigId }
+    val libraryItemId = last.libraryItemId
+    if (config == null || libraryItemId.isNullOrEmpty()) {
+      AbsLogger.info("PlayerNotificationService", "resumeLastPlaybackSession: Server for last session not found")
+      return
+    }
+    DeviceManager.serverConnectionConfig = config
+    AbsLogger.info("PlayerNotificationService", "resumeLastPlaybackSession: Requesting session for ${last.displayTitle}")
+    apiHandler.playLibraryItem(libraryItemId, last.episodeId, getPlayItemRequestPayload(false)) { session ->
+      if (session == null) {
+        AbsLogger.error("PlayerNotificationService", "resumeLastPlaybackSession: Failed to start session")
+      } else {
+        Handler(Looper.getMainLooper()).post { preparePlayer(session, true, rate) }
+      }
+    }
+  }
+
   fun play() {
     if (currentPlayer.isPlaying) {
       Log.d(tag, "Already playing")
@@ -1220,12 +1325,26 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
     result.detach()
 
     // Prevent crashing if app is restarted while browsing
-    if ((parentMediaId != DOWNLOADS_ROOT && parentMediaId != AUTO_MEDIA_ROOT) && !firstLoadDone) {
+    if ((parentMediaId != DOWNLOADS_ROOT && parentMediaId != AUTO_MEDIA_ROOT && parentMediaId != BOOST_ROOT) && !firstLoadDone) {
       result.sendResult(null)
       return
     }
 
-    if (parentMediaId == DOWNLOADS_ROOT) { // Load downloads
+    if (parentMediaId == BOOST_ROOT) { // Android Auto volume boost levels
+      val current = VolumeBooster.levelIndex(RbsSettingsStore.androidAutoBoostDb(ctx))
+      val items: MutableList<MediaBrowserCompat.MediaItem> = mutableListOf()
+      VolumeBooster.LEVELS.forEachIndexed { index, db ->
+        val label = if (db > 0) "+$db dB" else "Off"
+        val description = MediaDescriptionCompat.Builder()
+                .setMediaId("$BOOST_ID_PREFIX$db")
+                .setTitle(if (index == current) "✓ $label" else label)
+                .setSubtitle("Android Auto volume boost")
+                .setIconUri(getUriToDrawable(ctx, boostIcon(db)))
+                .build()
+        items += MediaBrowserCompat.MediaItem(description, MediaBrowserCompat.MediaItem.FLAG_PLAYABLE)
+      }
+      result.sendResult(items)
+    } else if (parentMediaId == DOWNLOADS_ROOT) { // Load downloads
       val localBooks = DeviceManager.dbManager.getLocalLibraryItems("book")
       val localPodcasts = DeviceManager.dbManager.getLocalLibraryItems("podcast")
       val localBrowseItems: MutableList<MediaBrowserCompat.MediaItem> = mutableListOf()
@@ -2180,6 +2299,18 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
                       R.drawable.skip_previous_24
               )
               .build()
+    }
+  }
+
+  inner class ChangeBoostCustomActionProvider : CustomActionProvider {
+    override fun onCustomAction(player: Player, action: String, extras: Bundle?) {
+      // Handled by MediaSessionCallback.onCustomAction()
+    }
+
+    override fun getCustomAction(player: Player): PlaybackStateCompat.CustomAction? {
+      val db = RbsSettingsStore.androidAutoBoostDb(getContext())
+      val label = if (db > 0) "Volume boost +$db dB" else "Volume boost off"
+      return PlaybackStateCompat.CustomAction.Builder(CUSTOM_ACTION_CHANGE_BOOST, label, boostIcon(db)).build()
     }
   }
 

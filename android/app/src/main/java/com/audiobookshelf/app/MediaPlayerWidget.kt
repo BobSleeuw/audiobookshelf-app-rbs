@@ -1,5 +1,6 @@
 package com.audiobookshelf.app
 
+import com.audiobookshelf.app.server.CustomHeaders
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
@@ -91,7 +92,7 @@ internal fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManage
   views.setTextViewText(R.id.widgetMediaTitle, title)
 
   val options = RequestOptions().override(300, 300).placeholder(R.drawable.icon).error(R.drawable.icon)
-  Glide.with(context.applicationContext).asBitmap().load(imageUri).apply(options).into(awt)
+  Glide.with(context.applicationContext).asBitmap().load(if (imageUri.scheme == "http" || imageUri.scheme == "https") CustomHeaders.glideModel(imageUri.toString()) else imageUri).apply(options).into(awt)
 
   Log.i(tag, "Update App Widget | Is Playing=$isPlaying | isAppClosed=$isAppClosed")
 
