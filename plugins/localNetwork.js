@@ -97,4 +97,5 @@ export default function ({ store }, inject) {
   }
 
   inject('localNetwork', service)
+  inject('rbsSettings', AbsRbsSettings)
 }

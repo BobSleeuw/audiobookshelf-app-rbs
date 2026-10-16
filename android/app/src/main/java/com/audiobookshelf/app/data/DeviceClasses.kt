@@ -64,7 +64,9 @@ data class ServerConnectionConfig(
         // `address` always holds the address currently in use.
         var remoteAddress: String? = null,
         var localAddress: String? = null,
-        var localSsids: List<String>? = null
+        var localSsids: List<String>? = null,
+        // Optional nickname shown in the server list instead of the address
+        var alias: String? = null
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)

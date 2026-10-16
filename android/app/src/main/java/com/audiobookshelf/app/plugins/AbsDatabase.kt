@@ -186,7 +186,7 @@ class AbsDatabase : Plugin() {
 
   /**
    * Updates the address in use and/or the local network settings of a saved server, without touching the login.
-   * Accepts: id, address, remoteAddress, localAddress (empty clears), localSsids (array)
+   * Accepts: id, address, remoteAddress, alias (empty clears), localAddress (empty clears), localSsids (array), customHeaders
    */
   @PluginMethod
   fun updateServerAddresses(call: PluginCall) {
@@ -199,6 +199,15 @@ class AbsDatabase : Plugin() {
     val data = call.data
     if (data.has("address")) call.getString("address")?.takeIf { it.isNotBlank() }?.let { config.address = it }
     if (data.has("remoteAddress")) config.remoteAddress = call.getString("remoteAddress")?.takeIf { it.isNotBlank() }
+    if (data.has("alias")) config.alias = call.getString("alias")?.trim()?.takeIf { it.isNotEmpty() }
+    if (data.has("customHeaders")) {
+      val headers = mutableMapOf<String, String>()
+      call.getObject("customHeaders")?.let { obj ->
+        obj.keys().forEach { key -> if (key.isNotBlank()) headers[key] = obj.getString(key) ?: "" }
+      }
+      config.customHeaders = headers
+    }
+    if (config.remoteAddress != null && data.has("remoteAddress")) config.name = "${config.remoteAddress} (${config.username})"
     if (data.has("localAddress")) config.localAddress = call.getString("localAddress")?.takeIf { it.isNotBlank() }
     if (data.has("localSsids")) {
       val ssids = mutableListOf<String>()
