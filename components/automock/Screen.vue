@@ -28,16 +28,7 @@
 
       <!-- browse: list of books / libraries / boost levels -->
       <div v-if="screen === 'browse'" class="flex-grow overflow-y-auto px-5 py-3">
-        <template v-if="activeTab === 'boost'">
-          <p class="text-xs uppercase mb-2" style="color: #9aa0a6">Android Auto volume boost</p>
-          <div v-for="db in levels" :key="db" class="flex items-center py-2.5 cursor-pointer" @click="$emit('level', db)">
-            <div class="rounded-lg flex items-center justify-center mr-4" style="width: 52px; height: 52px; background: #26282c">
-              <span class="text-base font-semibold" :style="db > 0 ? 'color:#8ab4f8' : 'color:#9aa0a6'">{{ db > 0 ? '+' + db : 'Off' }}</span>
-            </div>
-            <p class="text-base flex-grow">{{ (db === level ? '✓ ' : '') + (db > 0 ? '+' + db + ' dB' : 'Off') }}</p>
-          </div>
-        </template>
-        <template v-else>
+        <template>
           <div v-for="book in books" :key="book.title" class="flex items-center py-2.5 cursor-pointer" @click="screen = 'playing'">
             <div class="rounded-lg mr-4 flex-shrink-0" :style="{ width: '52px', height: '52px', background: book.color }" />
             <div class="min-w-0 flex-grow">
@@ -53,12 +44,14 @@
         <div class="flex-shrink-0 rounded-xl self-center" style="width: 190px; height: 190px; background: linear-gradient(135deg, #8b2c2c, #5b1a1a)" />
         <div class="flex-grow flex flex-col justify-center pl-8 min-w-0">
           <p class="text-2xl font-medium truncate">Project Hail Mary</p>
-          <p class="text-base mb-5" style="color: #9aa0a6">Andy Weir · Chapter 12</p>
+          <p class="text-base mb-5" style="color: #9aa0a6">Andy Weir · Chapter 12 of 40</p>
 
           <div class="rounded-full" style="height: 4px; background: #3c4043">
-            <div class="rounded-full" style="height: 4px; width: 38%; background: #8ab4f8" />
+            <div class="rounded-full" style="height: 4px; background: #8ab4f8" :style="{ width: chapterProgress ? '62%' : '38%' }" />
           </div>
-          <div class="flex justify-between text-xs mt-1 mb-4" style="color: #9aa0a6"><span>3:42:10</span><span>-5:58:20</span></div>
+          <div class="flex justify-between text-xs mt-1 mb-4" style="color: #9aa0a6">
+            <span>{{ chapterProgress ? '12:05' : '3:42:10' }}</span><span>{{ chapterProgress ? '-7:21' : '-5:58:20' }}</span>
+          </div>
 
           <!-- playback buttons: standard controls in the middle, custom actions around them -->
           <div class="flex items-center justify-center space-x-3">
@@ -66,9 +59,9 @@
               <span v-if="action.text" class="text-sm font-semibold" :style="action.highlight ? 'color:#8ab4f8' : ''">{{ action.text }}</span>
               <span v-else class="material-symbols text-2xl">{{ action.icon }}</span>
             </div>
-            <div class="aa-btn"><span class="material-symbols text-3xl">skip_previous</span></div>
+            <div class="aa-btn" title="Previous chapter"><span class="material-symbols text-3xl">skip_previous</span></div>
             <div class="aa-btn aa-play"><span class="material-symbols text-4xl" style="color: #131417">{{ playing ? 'pause' : 'play_arrow' }}</span></div>
-            <div class="aa-btn"><span class="material-symbols text-3xl">skip_next</span></div>
+            <div class="aa-btn" title="Next chapter"><span class="material-symbols text-3xl">skip_next</span></div>
             <div v-for="action in actionsRight" :key="action.id" class="aa-btn" :class="action.proposed ? 'aa-proposed' : ''" @click="onAction(action)">
               <span v-if="action.text" class="text-sm font-semibold" :style="action.highlight ? 'color:#8ab4f8' : ''">{{ action.text }}</span>
               <span v-else class="material-symbols text-2xl">{{ action.icon }}</span>
@@ -81,8 +74,6 @@
 </template>
 
 <script>
-const BOOST_LEVELS = [0, 3, 6, 9, 12, 15]
-
 export default {
   props: {
     /** Android Auto boost level in dB */
@@ -90,14 +81,16 @@ export default {
     /** volume boost master switch */
     boostEnabled: Boolean,
     /** show the ideas that are not built yet */
-    proposed: Boolean
+    proposed: Boolean,
+    /** the bar shows the current chapter instead of the whole book */
+    chapterProgress: Boolean
   },
   data() {
     return {
       screen: 'browse',
       activeTab: 'continue',
       playing: true,
-      levels: BOOST_LEVELS,
+      boostActive: true,
       books: [
         { title: 'Project Hail Mary', author: 'Andy Weir', progress: '38%', color: '#8b2c2c' },
         { title: 'The Way of Kings', author: 'Brandon Sanderson', progress: '12%', color: '#2c5f8b' },
@@ -115,12 +108,12 @@ export default {
         { id: 'libraries', title: 'Libraries', icon: 'folder' },
         { id: 'downloads', title: 'Downloads', icon: 'download_done' }
       ]
-      if (this.boostEnabled) tabs.push({ id: 'boost', title: 'Volume boost', icon: 'volume_up' })
       if (this.proposed) tabs.push({ id: 'series', title: 'Series', icon: 'library_books', proposed: true })
       return tabs
     },
     boostAction() {
-      return { id: 'boost', text: this.level > 0 ? '+' + this.level : 'Off', highlight: this.level > 0, kind: 'boost' }
+      const on = this.boostActive && this.level > 0
+      return { id: 'boost', text: on ? '+' + this.level : 'Off', highlight: on, kind: 'boost' }
     },
     actionsLeft() {
       const list = [{ id: 'speed', text: '1.0x', kind: 'speed' }, { id: 'back', icon: 'replay_10', kind: 'jump' }]
@@ -141,10 +134,7 @@ export default {
   },
   methods: {
     onAction(action) {
-      if (action.kind === 'boost') {
-        const next = BOOST_LEVELS[(BOOST_LEVELS.indexOf(this.level) + 1) % BOOST_LEVELS.length]
-        this.$emit('level', next)
-      }
+      if (action.kind === 'boost') this.boostActive = !this.boostActive
     }
   }
 }
