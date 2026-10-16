@@ -60,7 +60,7 @@ export default {
       const found = []
       this.groups.forEach((group) => {
         visibleItems(group, this.values).forEach((item) => {
-          const label = (this.$strings[item.labelKey] || '').toLowerCase()
+          const label = (item.label || this.$strings[item.labelKey] || '').toLowerCase()
           if (label.includes(q) || group.title.toLowerCase().includes(q)) found.push({ group, item })
         })
       })
@@ -75,7 +75,7 @@ export default {
         else if (item.type === 'slider') value = v > 0 ? `+${v} dB` : 'Off'
         else if (item.type === 'link') value = 'On'
         else value = v
-        return { ...t, item, label: (this.$strings[item.labelKey] || '').replace(/^Use /, '').replace(/^./, (c) => c.toUpperCase()), value }
+        return { ...t, item, label: (item.label || this.$strings[item.labelKey] || '').replace(/^Use /, '').replace(/^./, (c) => c.toUpperCase()), value }
       })
     }
   },

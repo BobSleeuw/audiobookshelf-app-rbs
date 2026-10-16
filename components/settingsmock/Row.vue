@@ -40,7 +40,7 @@ export default {
   },
   computed: {
     label() {
-      return this.$strings[this.item.labelKey] || this.item.labelKey
+      return this.item.label || this.$strings[this.item.labelKey] || this.item.labelKey
     }
   },
   methods: {

@@ -68,7 +68,7 @@ export default {
       const found = []
       this.groups.forEach((group) => {
         group.items.forEach((item) => {
-          const text = `${item.short} ${this.$strings[item.labelKey] || ''} ${group.title}`.toLowerCase()
+          const text = `${item.short} ${item.label || this.$strings[item.labelKey] || ''} ${group.title}`.toLowerCase()
           if (text.includes(q)) found.push({ group, item })
         })
       })

@@ -32,12 +32,13 @@ export const GROUPS = [
       { id: 'jumpBack', short: 'Jump back', type: 'select', labelKey: 'LabelJumpBackwardsTime', options: ['5s', '10s', '15s', '30s'], default: '10s' },
       { id: 'jumpForward', short: 'Jump forward', type: 'select', labelKey: 'LabelJumpForwardsTime', options: ['10s', '30s', '60s'], default: '30s' },
       { id: 'disableAutoRewind', short: 'Auto rewind', type: 'toggle', labelKey: 'LabelDisableAutoRewind', default: false },
-      { id: 'mp3Seeking', short: 'MP3 seeking', type: 'toggle', labelKey: 'LabelEnableMp3IndexSeeking', default: false },
+      { id: 'mp3Seeking', short: '.mp3 seeking', type: 'toggle', label: 'Enable .mp3 index seeking', default: false },
       { id: 'mediaSeeking', short: 'Media control seeking', type: 'toggle', labelKey: 'LabelAllowSeekingOnMediaControls', default: false },
-      { id: 'volumeBoost', short: 'Volume boost', type: 'slider', labelKey: 'LabelVolumeBoost', min: 0, max: 15, unit: ' dB', default: 6 },
-      { id: 'autoBoost', short: 'Android Auto boost', type: 'slider', labelKey: 'LabelAndroidAutoVolumeBoost', min: 0, max: 15, unit: ' dB', default: 9 }
+      { id: 'boostEnabled', short: 'Volume boost', type: 'toggle', labelKey: 'LabelVolumeBoost', default: true },
+      { id: 'volumeBoost', short: 'Boost level', type: 'slider', label: 'Boost level', min: 0, max: 15, unit: ' dB', default: 6, showIf: 'boostEnabled' },
+      { id: 'autoBoost', short: 'Android Auto boost level', type: 'slider', label: 'Boost level on Android Auto', min: 0, max: 15, unit: ' dB', default: 9, showIf: 'boostEnabled' }
     ],
-    summary: (v) => `Jump ${v.jumpBack} / ${v.jumpForward} · Boost ${v.volumeBoost ? '+' + v.volumeBoost + ' dB' : 'off'}`
+    summary: (v) => `Jump ${v.jumpBack} / ${v.jumpForward} · Boost ${v.boostEnabled ? '+' + v.volumeBoost + ' dB' : 'off'}`
   },
   {
     id: 'sleep',
@@ -77,7 +78,7 @@ export const GROUPS = [
 export const QUICK_TILES = [
   { id: 'theme', icon: 'contrast' },
   { id: 'bookshelfView', icon: 'shelves' },
-  { id: 'volumeBoost', icon: 'volume_up' },
+  { id: 'boostEnabled', icon: 'volume_up' },
   { id: 'autoTimer', icon: 'bedtime' },
   { id: 'bluetooth', icon: 'bluetooth' },
   { id: 'lockOrientation', icon: 'screen_lock_rotation' }
