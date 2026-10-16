@@ -4,6 +4,7 @@ import Vue from 'vue'
  * Settings mockups: every setting of the current Settings page grouped in four categories.
  * Labels use the app's real strings (labelKey). Values are local to the mockup and are not saved.
  *
+ * item.headingBefore: draw a divider line and a small heading above the setting
  * item.dividerBefore: draw a divider line above the setting
  * item.type: toggle | select | slider | steps | link | time
  * item.showIf: id (or list of ids) of toggles that must be on for the item to show
@@ -13,6 +14,15 @@ const LANGUAGES = ['Български', 'Català', 'Čeština', 'Dansk', 'Deuts
 
 // Seconds the app offers for jumping (5, 10, 15, 30, 60, 120, 300), labelled like the real Settings page
 const JUMP_OPTIONS = ['5s', '10s', '15s', '30s', '60s', '2m', '5m']
+
+// Paired Bluetooth devices (sample data for the mockup)
+const BT_DEVICES = [
+  { id: 'bt1', name: 'Car stereo', detail: 'Pioneer MVH-S320BT', default: true },
+  { id: 'bt2', name: 'Sony WH-1000XM4', detail: 'Headphones', default: true },
+  { id: 'bt3', name: 'JBL Flip 5', detail: 'Speaker', default: false },
+  { id: 'bt4', name: 'Galaxy Buds2', detail: 'Earbuds', default: false },
+  { id: 'bt5', name: 'Fitbit Charge 5', detail: 'Watch', default: false }
+]
 
 // Choices of the real app (SleepTimerLengthModal / AutoSleepTimerRewindLengthModal)
 const SLEEP_LENGTHS = ['5 min', '10 min', '15 min', '30 min', '45 min', '60 min', '90 min']
@@ -34,6 +44,24 @@ export const GROUPS = [
       { id: 'haptics', short: 'Haptic feedback', type: 'select', labelKey: 'LabelHapticFeedback', options: ['None', 'Light', 'Medium', 'Heavy'], default: 'Light' }
     ],
     summary: (v) => `${v.theme} theme · ${v.language} · ${v.bookshelfView ? 'Bookshelf view' : 'List view'}`
+  },
+  {
+    id: 'connections',
+    title: 'Connections & data',
+    shortTitle: 'Connect',
+    description: 'Bluetooth, cellular and Android Auto',
+    icon: 'sync_alt',
+    items: [
+      { id: 'btAuto', short: 'Bluetooth auto play', type: 'toggle', label: 'Bluetooth auto play', help: 'Start playing your last book when one of the devices below connects.', default: true },
+      { id: 'btDelay', short: 'Delay before playing', type: 'slider', plain: true, label: 'Delay before playing', min: 0, max: 30, unit: ' s', default: 5, showIf: 'btAuto' },
+      { id: 'btBackground', short: 'Start when app is closed', type: 'action', label: 'Start when the app is closed', help: 'Needs this app to be excluded from battery optimization.', buttonText: 'Allow', showIf: 'btAuto' },
+      { id: 'btDevices', short: 'Bluetooth devices', type: 'devices', label: 'Devices', help: 'Turn on the devices that should start playback when they connect.', showIf: 'btAuto', devices: BT_DEVICES },
+      { id: 'downloadCellular', short: 'Download using cellular', headingBefore: 'Mobile data', type: 'select', labelKey: 'LabelDownloadUsingCellular', options: ['Ask for confirmation', 'Always', 'Never'], default: 'Ask for confirmation' },
+      { id: 'streamCellular', short: 'Stream using cellular', type: 'select', labelKey: 'LabelStreamingUsingCellular', options: ['Ask for confirmation', 'Always', 'Never'], default: 'Always' },
+      { id: 'autoBrowseLimit', short: 'Group by letter limit', headingBefore: 'Android Auto', type: 'select', label: 'Group by letter above', help: 'In Android Auto, a list with more series or authors than this is split into letters (A, B, C ...) that you tap to open. Shorter lists show everything at once.', options: ['25', '50', '100', '200', '500'], default: '100' },
+      { id: 'autoSeriesOrder', short: 'Series book order', type: 'select', label: 'Series book order', help: 'The order of the books when you open a series in Android Auto. Ascending starts with book 1.', options: ['Ascending', 'Descending'], default: 'Ascending' }
+    ],
+    summary: (v) => (v.btAuto ? 'Bluetooth auto play on' : 'Bluetooth auto play off')
   },
   {
     id: 'playback',
@@ -71,21 +99,6 @@ export const GROUPS = [
       { id: 'autoRewindTime', short: 'Auto rewind time', type: 'steps', labelKey: 'LabelAutoRewindTime', options: REWIND_LENGTHS, ticks: REWIND_LENGTH_TICKS, default: '5 min', showIf: ['autoTimer', 'autoRewind'] }
     ],
     summary: (v) => (v.autoTimer ? `Auto ${v.autoStart}–${v.autoEnd} · ${v.autoLength}` : 'Auto sleep timer off')
-  },
-  {
-    id: 'connections',
-    title: 'Connections & data',
-    shortTitle: 'Connect',
-    description: 'Bluetooth, Android Auto, cellular',
-    icon: 'sync_alt',
-    items: [
-      { id: 'bluetooth', short: 'Bluetooth auto play', icon: 'bluetooth', type: 'link', labelKey: 'HeaderBluetoothAutoPlay', valueText: '2 devices on · 5 s delay' },
-      { id: 'autoBrowseLimit', short: 'Android Auto browse limit', type: 'select', labelKey: 'LabelAndroidAutoBrowseLimitForGrouping', options: ['50', '100', '200'], default: '100' },
-      { id: 'autoSeriesOrder', short: 'Android Auto series order', type: 'select', labelKey: 'LabelAndroidAutoBrowseSeriesSequenceOrder', options: ['Ascending', 'Descending'], default: 'Ascending' },
-      { id: 'downloadCellular', short: 'Download on cellular', type: 'select', labelKey: 'LabelDownloadUsingCellular', options: ['Ask', 'Always', 'Never'], default: 'Ask' },
-      { id: 'streamCellular', short: 'Stream on cellular', type: 'select', labelKey: 'LabelStreamingUsingCellular', options: ['Ask', 'Always', 'Never'], default: 'Always' }
-    ],
-    summary: (v) => `Bluetooth · Android Auto · Cellular: ${v.downloadCellular.toLowerCase()} downloads`
   }
 ]
 
@@ -95,7 +108,7 @@ export const QUICK_TILES = [
   { id: 'bookshelfView', icon: 'shelves' },
   { id: 'boostEnabled', icon: 'volume_up' },
   { id: 'autoTimer', icon: 'bedtime' },
-  { id: 'bluetooth', icon: 'bluetooth' },
+  { id: 'btAuto', icon: 'bluetooth' },
   { id: 'lockOrientation', icon: 'screen_lock_rotation' }
 ]
 
@@ -103,6 +116,7 @@ export const QUICK_TILES = [
 export function createValues() {
   const values = {}
   GROUPS.forEach((g) => g.items.forEach((i) => (values[i.id] = i.default !== undefined ? i.default : null)))
+  GROUPS.forEach((g) => g.items.forEach((i) => (i.devices || []).forEach((d) => (values[d.id] = d.default))))
   values.autoStart = '22:00'
   values.autoEnd = '06:00'
   return Vue.observable(values)

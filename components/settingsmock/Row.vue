@@ -8,11 +8,14 @@
     <ui-toggle-switch :value="!!values[item.id]" class="pointer-events-none flex-shrink-0" />
   </div>
 
-  <div v-else-if="item.type === 'select'" class="py-3 flex items-center">
-    <p class="flex-grow pr-4">{{ label }}</p>
-    <div class="flex-shrink-0" @click.stop="pick">
-      <ui-text-input :value="values[item.id]" readonly append-icon="expand_more" :autofocus="false" style="width: 200px" />
+  <div v-else-if="item.type === 'select'" class="py-3">
+    <div class="flex items-center">
+      <p class="flex-grow pr-4">{{ label }}</p>
+      <div class="flex-shrink-0" @click.stop="pick">
+        <ui-text-input :value="values[item.id]" readonly append-icon="expand_more" :autofocus="false" style="width: 200px" />
+      </div>
     </div>
+    <p v-if="item.help" class="text-xs text-fg-muted mt-1.5">{{ item.help }}</p>
   </div>
 
   <div v-else-if="item.type === 'time'" class="py-3 flex items-center">
@@ -23,7 +26,7 @@
   <div v-else-if="item.type === 'slider'" class="py-3">
     <div class="flex items-center">
       <p class="flex-grow">{{ label }}</p>
-      <p class="text-sm tabular-nums">{{ values[item.id] > 0 ? '+' + values[item.id] + item.unit : $strings.LabelOff }}</p>
+      <p class="text-sm tabular-nums">{{ item.plain ? values[item.id] + item.unit : values[item.id] > 0 ? '+' + values[item.id] + item.unit : $strings.LabelOff }}</p>
     </div>
     <input v-model.number="values[item.id]" type="range" :min="item.min" :max="item.max" step="1" class="w-full" />
   </div>
@@ -70,6 +73,29 @@
       </div>
     </div>
     <settingsmock-clock-picker v-model="showClock" :time="clockTime" :title="clockTitle" @confirm="setClockTime" />
+  </div>
+
+  <!-- text with a button -->
+  <div v-else-if="item.type === 'action'" class="py-3 flex items-center">
+    <div class="flex-grow pr-4">
+      <p>{{ label }}</p>
+      <p v-if="item.help" class="text-xs text-fg-muted mt-0.5">{{ item.help }}</p>
+    </div>
+    <ui-btn small class="flex-shrink-0">{{ item.buttonText }}</ui-btn>
+  </div>
+
+  <!-- list of devices with an on / off toggle for each -->
+  <div v-else-if="item.type === 'devices'" class="py-3">
+    <p>{{ label }}</p>
+    <p v-if="item.help" class="text-xs text-fg-muted mt-0.5 mb-1">{{ item.help }}</p>
+    <div v-for="device in item.devices" :key="device.id" class="flex items-center py-2 cursor-pointer" @click="values[device.id] = !values[device.id]">
+      <span class="material-symbols text-2xl text-fg-muted w-9 flex-shrink-0">{{ values[device.id] ? 'bluetooth_connected' : 'bluetooth' }}</span>
+      <div class="flex-grow min-w-0 pr-4">
+        <p class="truncate">{{ device.name }}</p>
+        <p class="text-xs text-fg-muted truncate">{{ device.detail }}</p>
+      </div>
+      <ui-toggle-switch :value="!!values[device.id]" class="pointer-events-none flex-shrink-0" />
+    </div>
   </div>
 
   <div v-else-if="item.type === 'link'" class="py-3 flex items-center">
