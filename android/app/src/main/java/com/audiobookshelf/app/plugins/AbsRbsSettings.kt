@@ -71,6 +71,9 @@ class AbsRbsSettings : Plugin() {
       .put("androidAutoVolumeBoostDb", RbsSettingsStore.androidAutoBoostDb(context))
       .put("volumeBoostEnabled", RbsSettingsStore.volumeBoostEnabled(context))
       .put("bluetoothAutoPlayEnabled", RbsSettingsStore.bluetoothAutoPlayEnabled(context))
+      .put("bluetoothStartWhenClosed", RbsSettingsStore.bluetoothStartWhenClosed(context))
+      .put("progressMode", RbsSettingsStore.progressMode(context))
+      .put("androidAutoProgressMode", RbsSettingsStore.androidAutoProgressMode(context))
       .put("maxBoostDb", RbsSettingsStore.MAX_BOOST_DB)
       .put("maxBluetoothDelaySeconds", RbsSettingsStore.MAX_BLUETOOTH_DELAY_SECONDS)
       .put("ignoringBatteryOptimizations", isIgnoringBatteryOptimizations())
@@ -86,7 +89,7 @@ class AbsRbsSettings : Plugin() {
   @PluginMethod
   fun setSetting(call: PluginCall) {
     val key = call.getString("key")
-    if (key == RbsSettingsStore.KEY_BOOST_ENABLED || key == RbsSettingsStore.KEY_BLUETOOTH_ENABLED) {
+    if (key == RbsSettingsStore.KEY_BOOST_ENABLED || key == RbsSettingsStore.KEY_BLUETOOTH_ENABLED || key == RbsSettingsStore.KEY_BLUETOOTH_START_WHEN_CLOSED) {
       val flag = call.getBoolean("value")
       if (flag == null) {
         call.reject("value required")
@@ -94,6 +97,17 @@ class AbsRbsSettings : Plugin() {
       }
       RbsSettingsStore.setBoolean(context, key, flag)
       if (key == RbsSettingsStore.KEY_BOOST_ENABLED) VolumeBooster.apply()
+      call.resolve(settingsObject())
+      return
+    }
+    if (key == RbsSettingsStore.KEY_PROGRESS_MODE || key == RbsSettingsStore.KEY_ANDROID_AUTO_PROGRESS_MODE) {
+      val mode = call.getString("value")
+      if (mode != RbsSettingsStore.PROGRESS_CHAPTER && mode != RbsSettingsStore.PROGRESS_BOOK) {
+        call.reject("invalid progress mode")
+        return
+      }
+      RbsSettingsStore.setString(context, key, mode)
+      VolumeBooster.onChanged?.invoke() // refreshes what the notification and Android Auto show
       call.resolve(settingsObject())
       return
     }

@@ -16,7 +16,10 @@ import { registerPlugin, WebPlugin } from '@capacitor/core'
 class AbsRbsSettingsWeb extends WebPlugin {
   async getSettings() {
     return {
+      progressMode: 'CHAPTER',
+      androidAutoProgressMode: 'CHAPTER',
       bluetoothAutoPlayEnabled: true,
+      bluetoothStartWhenClosed: true,
       bluetoothDelaySeconds: 5,
       volumeBoostEnabled: false,
       volumeBoostDb: 0,

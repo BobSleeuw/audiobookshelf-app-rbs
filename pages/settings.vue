@@ -1,7 +1,7 @@
 <template>
   <div class="relative w-full h-full flex flex-col overflow-hidden">
     <!-- header bar of a category page (title and back arrow) -->
-    <settings-header v-if="currentGroup" :title="currentGroup.title" back @back="closeSection" />
+    <settings-header v-if="currentGroup" :title="currentGroup.title" />
 
     <div class="flex-grow overflow-y-auto px-4" :class="currentGroup ? 'py-3' : 'py-6'">
       <!-- category list -->
@@ -24,13 +24,13 @@
 
         <!-- categories -->
         <template v-else>
-          <div v-for="group in groups" :key="group.id" class="flex items-center bg-primary rounded-lg px-4 py-5 mb-3 cursor-pointer" @click="openSection(group)">
-            <span class="material-symbols text-3xl text-fg-muted w-12 flex-shrink-0">{{ group.icon }}</span>
+          <div v-for="group in groups" :key="group.id" class="flex items-center bg-primary rounded-lg px-4 py-3.5 mb-3 cursor-pointer" @click="openSection(group)">
+            <span class="material-symbols text-2xl text-fg-muted w-10 flex-shrink-0">{{ group.icon }}</span>
             <div class="flex-grow min-w-0 pr-2">
-              <p class="text-lg">{{ group.title }}</p>
-              <p class="text-sm text-fg-muted mt-1 truncate">{{ group.description }}</p>
+              <p class="text-base">{{ group.title }}</p>
+              <p class="text-xs text-fg-muted mt-0.5">{{ group.description }}</p>
             </div>
-            <span class="material-symbols text-2xl text-fg-muted">chevron_right</span>
+            <span class="material-symbols text-xl text-fg-muted">chevron_right</span>
           </div>
         </template>
       </template>
@@ -106,7 +106,10 @@ export default {
       },
       // ABS-RBS settings (stored natively)
       rbs: {
+        progressMode: 'CHAPTER',
+        androidAutoProgressMode: 'CHAPTER',
         bluetoothAutoPlayEnabled: true,
+        bluetoothStartWhenClosed: true,
         bluetoothDelaySeconds: 5,
         maxBluetoothDelaySeconds: 30,
         ignoringBatteryOptimizations: true,
@@ -173,6 +176,12 @@ export default {
         { text: this.$strings.LabelNever, value: 'NEVER' }
       ]
     },
+    progressModeItems() {
+      return [
+        { text: this.$strings.LabelChapterTrack, value: 'CHAPTER' },
+        { text: this.$strings.LabelTotalTrack, value: 'BOOK' }
+      ]
+    },
     seriesOrderItems() {
       return [
         { text: this.$strings.LabelAscending, value: 'ASC' },
@@ -199,6 +208,8 @@ export default {
 
         btAuto: this.rbs.bluetoothAutoPlayEnabled,
         btDelay: this.rbs.bluetoothDelaySeconds,
+        // needs the battery optimization exemption from Android; without it the switch is off and greyed out
+        btBackground: this.rbs.bluetoothStartWhenClosed && this.rbs.ignoringBatteryOptimizations,
         autoBrowseLimit: s.androidAutoBrowseLimitForGrouping,
         autoSeriesOrder: s.androidAutoBrowseSeriesSequenceOrder,
         downloadCellular: s.downloadUsingCellular,
@@ -209,6 +220,8 @@ export default {
         disableAutoRewind: s.disableAutoRewind,
         mp3Seeking: s.enableMp3IndexSeeking,
         mediaSeeking: s.allowSeekingOnMediaControls,
+        progressMode: this.rbs.progressMode,
+        autoProgressMode: this.rbs.androidAutoProgressMode,
         boostEnabled: this.rbs.volumeBoostEnabled,
         volumeBoost: this.rbs.volumeBoostDb,
         autoBoost: this.rbs.androidAutoVolumeBoostDb,
@@ -254,9 +267,10 @@ export default {
           items: [
             { id: 'btAuto', type: 'toggle', label: s.LabelBluetoothAutoPlay, headingBefore: s.LabelBluetooth, android: true },
             { id: 'btDelay', type: 'slider', plain: true, label: s.LabelDelayBeforePlaying, min: 0, max: this.rbs.maxBluetoothDelaySeconds, unit: ' s', showIf: ['btAuto'], android: true },
-            { id: 'btBackground', type: 'action', label: s.LabelStartWhenAppClosed, buttonText: s.ButtonAllow, done: this.rbs.ignoringBatteryOptimizations, showIf: ['btAuto'], android: true },
+            { id: 'btBackground', type: 'toggle', label: s.LabelStartWhenAppClosed, disabled: !this.rbs.ignoringBatteryOptimizations, buttonText: s.ButtonGrantPermission, showIf: ['btAuto'], android: true },
             { id: 'btDevices', type: 'devices', label: s.LabelAutoPlayDevices, loading: this.bluetooth.loading, granted: this.bluetooth.granted, devices: this.bluetooth.devices, showIf: ['btAuto'], android: true },
-            { id: 'autoBrowseLimit', type: 'select', label: s.LabelGroupByLetterAbove, headingBefore: s.LabelAndroidAuto, options: this.browseLimitItems, android: true },
+            { id: 'autoProgressMode', type: 'select', label: s.LabelProgressBar, headingBefore: s.LabelAndroidAuto, options: this.progressModeItems, android: true },
+            { id: 'autoBrowseLimit', type: 'select', label: s.LabelGroupByLetterAbove, options: this.browseLimitItems, android: true },
             { id: 'autoSeriesOrder', type: 'select', label: s.LabelSeriesBookOrder, options: this.seriesOrderItems, android: true },
             { id: 'downloadCellular', type: 'select', label: s.LabelDownloadUsingCellular, headingBefore: s.LabelMobileData, options: this.cellularItems },
             { id: 'streamCellular', type: 'select', label: s.LabelStreamingUsingCellular, options: this.cellularItems }
@@ -273,6 +287,7 @@ export default {
             { id: 'disableAutoRewind', type: 'toggle', label: s.LabelDisableAutoRewind, dividerBefore: true },
             { id: 'mp3Seeking', type: 'toggle', label: s.LabelEnableMp3IndexSeeking, android: true },
             { id: 'mediaSeeking', type: 'toggle', label: s.LabelAllowSeekingOnMediaControls },
+            { id: 'progressMode', type: 'select', label: s.LabelProgressInNotification, options: this.progressModeItems, android: true },
             { id: 'boostEnabled', type: 'toggle', label: s.LabelVolumeBoost, dividerBefore: true, android: true },
             { id: 'volumeBoost', type: 'slider', label: s.LabelBoostLevel, min: 0, max: this.rbs.maxBoostDb, unit: ' dB', showIf: ['boostEnabled'], android: true },
             { id: 'autoBoost', type: 'slider', label: s.LabelBoostLevelAndroidAuto, min: 0, max: this.rbs.maxBoostDb, unit: ' dB', showIf: ['boostEnabled'], android: true }
@@ -284,15 +299,15 @@ export default {
           description: s.MessageSettingsSleepTimerDescription,
           icon: 'bedtime',
           items: [
-            { id: 'shakeReset', type: 'toggle', label: s.LabelShakeToReset, help: s.MessageShakeToResetHelp, android: true },
+            { id: 'shakeReset', type: 'toggle', label: s.LabelShakeToReset, android: true },
             { id: 'shakeSensitivity', type: 'select', label: s.LabelShakeSensitivity, options: this.shakeSensitivityItems, showIf: ['shakeReset'], android: true },
-            { id: 'disableFade', type: 'toggle', label: s.LabelDisableAudioFadeOut, help: s.MessageAudioFadeOutHelp, dividerBefore: true },
-            { id: 'disableVibrate', type: 'toggle', label: s.LabelDisableVibrateOnReset, help: s.MessageVibrateOnResetHelp, android: true },
-            { id: 'chime', type: 'toggle', label: s.LabelSleepTimerAlmostDoneChime, help: s.MessageAlmostDoneChimeHelp, android: true },
-            { id: 'autoTimer', type: 'toggle', label: s.LabelAutoSleepTimer, help: s.MessageAutoSleepTimerHelp, dividerBefore: true, android: true },
+            { id: 'disableFade', type: 'toggle', label: s.LabelDisableAudioFadeOut, dividerBefore: true },
+            { id: 'disableVibrate', type: 'toggle', label: s.LabelDisableVibrateOnReset, android: true },
+            { id: 'chime', type: 'toggle', label: s.LabelSleepTimerAlmostDoneChime, android: true },
+            { id: 'autoTimer', type: 'toggle', label: s.LabelAutoSleepTimer, dividerBefore: true, android: true },
             { id: 'autoLength', type: 'steps', label: s.LabelSleepTimerLength, options: this.sleepTimerLengthItems, special: { text: s.LabelEndOfChapter, value: 0 }, defaultValue: 900000, showIf: ['autoTimer'], android: true },
             { id: 'autoWindow', type: 'timerange', label: s.LabelActiveBetween, startId: 'autoStart', endId: 'autoEnd', showIf: ['autoTimer'], android: true },
-            { id: 'autoRewind', type: 'toggle', label: s.LabelAutoSleepTimerAutoRewind, help: s.MessageAutoRewindHelp, showIf: ['autoTimer'], android: true },
+            { id: 'autoRewind', type: 'toggle', label: s.LabelAutoSleepTimerAutoRewind, showIf: ['autoTimer'], android: true },
             { id: 'autoRewindTime', type: 'steps', label: s.LabelAutoRewindTime, options: this.sleepTimerLengthItems, showIf: ['autoTimer', 'autoRewind'], android: true }
           ]
         }
@@ -362,9 +377,6 @@ export default {
         setTimeout(() => (this.highlightId = null), 1800)
       })
     },
-    closeSection() {
-      this.$router.back()
-    },
     /** Open the category of a search result and jump to the setting (a setting that only shows under another one jumps to that one) */
     openResult({ group, item }) {
       const off = (item.showIf || []).find((id) => !this.values[id])
@@ -415,6 +427,9 @@ export default {
         case 'btDelay':
           this.rbs.bluetoothDelaySeconds = value // saved when the slider is released
           return
+        case 'btBackground':
+          this.rbs.bluetoothStartWhenClosed = value
+          return this.saveRbsSetting('bluetoothStartWhenClosed', value)
         case 'btAllDevices':
           return this.setAllBluetoothDevices(value)
         case 'autoBrowseLimit':
@@ -445,6 +460,12 @@ export default {
         case 'mediaSeeking':
           s.allowSeekingOnMediaControls = value
           break
+        case 'progressMode':
+          this.rbs.progressMode = value
+          return this.saveRbsSetting('progressMode', value)
+        case 'autoProgressMode':
+          this.rbs.androidAutoProgressMode = value
+          return this.saveRbsSetting('androidAutoProgressMode', value)
         case 'boostEnabled':
           return this.setVolumeBoostEnabled(value)
         case 'volumeBoost':
@@ -528,7 +549,10 @@ export default {
       try {
         const settings = await AbsRbsSettings.getSettings()
         this.rbs = {
+          progressMode: settings.progressMode || 'CHAPTER',
+          androidAutoProgressMode: settings.androidAutoProgressMode || 'CHAPTER',
           bluetoothAutoPlayEnabled: settings.bluetoothAutoPlayEnabled !== false,
+          bluetoothStartWhenClosed: settings.bluetoothStartWhenClosed !== false,
           bluetoothDelaySeconds: settings.bluetoothDelaySeconds,
           maxBluetoothDelaySeconds: settings.maxBluetoothDelaySeconds || 30,
           ignoringBatteryOptimizations: !!settings.ignoringBatteryOptimizations,

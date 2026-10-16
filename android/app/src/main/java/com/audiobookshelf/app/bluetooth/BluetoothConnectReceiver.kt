@@ -34,6 +34,8 @@ class BluetoothConnectReceiver : BroadcastReceiver() {
 
     BluetoothAutoPlayStore.remember(context, address, name, true)
     if (!RbsSettingsStore.bluetoothAutoPlayEnabled(context)) return
+    // Starting from a closed app can be switched off; then only an already running player starts
+    if (!RbsSettingsStore.bluetoothStartWhenClosed(context) && !PlayerNotificationService.isStarted) return
     if (!BluetoothAutoPlayStore.isEnabled(context, address)) return
 
     // ACL connect can fire repeatedly while a device (re)connects

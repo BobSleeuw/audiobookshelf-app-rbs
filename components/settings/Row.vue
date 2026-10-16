@@ -1,11 +1,15 @@
 <template>
   <!-- One setting of the Settings page. The page owns the values; changes go back with @set -->
-  <div v-if="item.type === 'toggle'" class="flex items-center py-3 cursor-pointer" @click="toggle">
-    <div class="flex-grow pr-4">
-      <p>{{ item.label }}</p>
-      <p v-if="item.help" class="text-xs text-fg-muted mt-0.5">{{ item.help }}</p>
+  <div v-if="item.type === 'toggle'" class="py-3">
+    <div class="flex items-center" :class="item.disabled ? 'opacity-50' : 'cursor-pointer'" @click="toggle">
+      <div class="flex-grow pr-4">
+        <p>{{ item.label }}</p>
+        <p v-if="item.help" class="text-xs text-fg-muted mt-0.5">{{ item.help }}</p>
+      </div>
+      <ui-toggle-switch :value="!!value" class="pointer-events-none flex-shrink-0" />
     </div>
-    <ui-toggle-switch :value="!!value" class="pointer-events-none flex-shrink-0" />
+    <!-- a greyed out switch with the button that gives the permission it needs -->
+    <ui-btn v-if="item.disabled && item.buttonText" small class="mt-2" @click="$emit('action', item.id)">{{ item.buttonText }}</ui-btn>
   </div>
 
   <div v-else-if="item.type === 'select'" class="py-3">
@@ -78,9 +82,16 @@
 
   <!-- list of Bluetooth devices with an on / off toggle for each -->
   <div v-else-if="item.type === 'devices'" class="py-3">
-    <p>{{ item.label }}</p>
+    <!-- the list can be long, so it is folded away until opened -->
+    <div class="flex items-center cursor-pointer" @click="devicesOpen = !devicesOpen">
+      <p class="flex-grow">{{ item.label }}</p>
+      <p v-if="item.granted && item.devices.length" class="text-sm text-fg-muted mr-1">{{ devicesOnCount }} / {{ item.devices.length }}</p>
+      <span class="material-symbols text-fg-muted">{{ devicesOpen ? 'expand_less' : 'expand_more' }}</span>
+    </div>
 
-    <div v-if="item.loading" class="py-6 flex justify-center">
+    <div v-if="!devicesOpen" />
+
+    <div v-else-if="item.loading" class="py-6 flex justify-center">
       <ui-loading-indicator />
     </div>
 
@@ -122,7 +133,7 @@ export default {
     values: Object
   },
   data() {
-    return { showClock: false, clockKey: null, clockTitle: '', lastTime: null }
+    return { showClock: false, clockKey: null, clockTitle: '', lastTime: null, devicesOpen: false }
   },
   computed: {
     value() {
@@ -148,6 +159,9 @@ export default {
       if (this.isSpecial) return this.item.special.text
       return this.optionText(this.item.options[this.stepIndex].value)
     },
+    devicesOnCount() {
+      return (this.item.devices || []).filter((d) => this.values[d.id]).length
+    },
     allDevicesOn() {
       return (this.item.devices || []).length > 0 && this.item.devices.every((d) => this.values[d.id])
     }
@@ -158,6 +172,7 @@ export default {
       return option ? option.text : this.item.format ? this.item.format(value) : String(value)
     },
     toggle() {
+      if (this.item.disabled) return
       this.$emit('set', this.item.id, !this.value)
     },
     slide(raw) {

@@ -59,7 +59,6 @@ export default {
       if (!this.networkConnected) return 'text-error'
       else if (!this.socketConnected) return 'text-warning'
       else if (!this.isNetworkUnmetered) return 'text-yellow-400'
-      else if (this.isCellular) return 'text-gray-200'
       else return 'text-success'
     }
   },

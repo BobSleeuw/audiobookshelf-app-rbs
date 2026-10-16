@@ -27,6 +27,13 @@ object VolumeBooster {
   var carConnected = false
     private set
 
+  /**
+   * Set when Android Auto (or its simulator) browses this app's media session. Only used when the Android Auto
+   * connection provider can't be read, so the Android Auto boost still applies.
+   */
+  @Volatile
+  var projectionBrowsing = false
+
   /** Selectable boost levels (dB) for the Android Auto menu and button; each has an icon ic_boost_<index>. */
   val LEVELS = listOf(0, 3, 6, 9, 12, 15)
 
@@ -43,16 +50,24 @@ object VolumeBooster {
     apply()
   }
 
-  /** Moves the Android Auto boost to the next level (wraps to off). */
-  fun cycleAndroidAutoBoost(ctx: Context) {
-    val next = (levelIndex(RbsSettingsStore.androidAutoBoostDb(ctx)) + 1) % LEVELS.size
-    setAndroidAutoBoost(ctx, LEVELS[next])
+  /** The Android Auto button: switches the boost on or off. The level is set with the slider in the app. */
+  fun toggleAndroidAutoBoost(ctx: Context) {
+    val active = !RbsSettingsStore.androidAutoBoostActive(ctx)
+    RbsSettingsStore.setBoolean(ctx, RbsSettingsStore.KEY_ANDROID_AUTO_BOOST_ACTIVE, active)
+    // Switching it on with the level at zero would do nothing
+    if (active && RbsSettingsStore.androidAutoBoostDb(ctx) == 0) {
+      RbsSettingsStore.setInt(ctx, RbsSettingsStore.KEY_ANDROID_AUTO_BOOST, 6)
+    }
+    apply()
   }
 
   /** Gain in dB currently requested for the active connection type. */
   fun currentBoostDb(ctx: Context): Int {
     if (!RbsSettingsStore.volumeBoostEnabled(ctx)) return 0
-    return if (carConnected) RbsSettingsStore.androidAutoBoostDb(ctx) else RbsSettingsStore.volumeBoostDb(ctx)
+    if (carConnected) {
+      return if (RbsSettingsStore.androidAutoBoostActive(ctx)) RbsSettingsStore.androidAutoBoostDb(ctx) else 0
+    }
+    return RbsSettingsStore.volumeBoostDb(ctx)
   }
 
   /** Attaches to the audio session of the player. Call again whenever the session id changes. */
@@ -72,22 +87,31 @@ object VolumeBooster {
 
   /** Applies the current settings; call after a setting or the car connection changed. */
   @Synchronized
-  fun apply() {
+  fun apply(notify: Boolean = true) {
     val ctx = appContext ?: return
+    refreshCarConnection()
     val enhancer = enhancer
     if (enhancer == null) {
-      onChanged?.invoke()
+      Log.w(TAG, "No audio enhancer attached yet (car=$carConnected)")
+      if (notify) onChanged?.invoke()
       return
     }
     val db = currentBoostDb(ctx)
     try {
       enhancer.setTargetGain(db * 100) // millibels
       enhancer.enabled = db > 0
-      Log.d(TAG, "Boost ${db}dB (car=$carConnected)")
+      Log.i(TAG, "Boost ${db}dB applied (car=$carConnected, enabled=${enhancer.enabled})")
     } catch (e: Exception) {
       Log.e(TAG, "Failed to apply boost: ${e.message}")
     }
-    onChanged?.invoke()
+    if (notify) onChanged?.invoke()
+  }
+
+  /** Re-reads the car connection and applies the gain; call when playback starts. */
+  fun refresh() {
+    val before = carConnected
+    apply(notify = false)
+    if (before != carConnected) onChanged?.invoke()
   }
 
   /** Starts watching the Android Auto connection state (provided by the Android Auto app). */
@@ -134,18 +158,22 @@ object VolumeBooster {
   private fun refreshCarConnection() {
     val ctx = appContext ?: return
     var connected = false
+    var answered = false
     try {
       ctx.contentResolver.query(CAR_CONNECTION_URI, arrayOf(CAR_CONNECTION_COLUMN), null, null, null)?.use { cursor ->
         val index = cursor.getColumnIndex(CAR_CONNECTION_COLUMN)
         if (index >= 0 && cursor.moveToNext()) {
           // 0 = not connected, 1 = native car OS, 2 = Android Auto projection
           connected = cursor.getInt(index) > 0
+          answered = true
         }
       }
     } catch (e: Exception) {
       // Android Auto not installed or provider unavailable
     }
-    if (connected != carConnected) Log.d(TAG, "Car connection changed: $connected")
+    // Without an answer from Android Auto, use the fact that it is browsing this app
+    if (!answered) connected = projectionBrowsing
+    if (connected != carConnected) Log.i(TAG, "Car connection changed: $connected (provider answered=$answered)")
     carConnected = connected
   }
 }

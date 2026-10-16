@@ -1,6 +1,7 @@
 <template>
-  <div class="w-full max-w-md mx-auto px-2 sm:px-4 lg:px-8 z-10">
-    <div v-show="!loggedIn" class="mt-8 bg-primary overflow-hidden shadow rounded-lg px-4 py-6 w-full">
+  <div class="w-full px-4 z-10">
+    <!-- the server list is a card; the details and login screens use the whole screen -->
+    <div v-show="!loggedIn" class="w-full" :class="showForm ? 'mt-2 pb-4' : 'mt-8 bg-primary overflow-hidden shadow rounded-lg px-4 py-6'">
       <!-- list of server connection configs -->
       <template v-if="!showForm">
         <div v-for="config in serverConnectionConfigs" :key="config.id" class="border-b border-fg/10 py-4">
@@ -34,10 +35,6 @@
       <div v-else class="w-full">
         <!-- server details: addresses, local network and custom headers on one screen -->
         <form v-if="!showAuth" @submit.prevent="onDetailsSubmit" novalidate class="w-full">
-          <div v-if="serverConnectionConfigs.length" class="flex items-center mb-4" @click="showServerList">
-            <span class="material-symbols text-fg-muted">arrow_back</span>
-          </div>
-
           <h2 class="text-lg leading-7 mb-2">{{ serverConfig.id ? $strings.HeaderServerDetails : $strings.ButtonAddNewServer }}</h2>
 
           <!-- server alias -->
@@ -50,8 +47,8 @@
           <p class="text-sm text-fg-muted mb-1">{{ $strings.LabelExternalUrl }}</p>
           <ui-text-input v-model="detail.address" :disabled="processing" placeholder="https://abs.example.com" type="url" class="w-full h-10" />
           <div class="flex items-center flex-wrap gap-2 mt-2">
-            <ui-btn :disabled="processing || testingAddress || !detail.address" type="button" :padding-x="3" class="h-8 text-sm" @click="testServerAddress">{{ $strings.ButtonTest }}</ui-btn>
-            <ui-btn :disabled="processing" type="button" :padding-x="3" class="h-8 text-sm" @click="addCustomHeaders">{{ $strings.HeaderCustomHeaders }}<span v-if="customHeadersCount" class="ml-1">({{ customHeadersCount }})</span></ui-btn>
+            <ui-btn :disabled="processing || testingAddress || !detail.address" type="button" :padding-x="3" :padding-y="0" class="h-8 text-sm" @click="testServerAddress">{{ $strings.ButtonTest }}</ui-btn>
+            <ui-btn :disabled="processing" type="button" :padding-x="3" :padding-y="0" class="h-8 text-sm" @click="addCustomHeaders">{{ $strings.HeaderCustomHeaders }}<span v-if="customHeadersCount" class="ml-1">({{ customHeadersCount }})</span></ui-btn>
           </div>
           <p v-if="addressTestText" class="text-xs mt-2" :class="addressTestOk ? 'text-success' : 'text-error'">{{ addressTestText }}</p>
 
@@ -61,13 +58,13 @@
           <ui-text-input v-model="detail.localAddress" :disabled="processing" placeholder="http://192.168.1.10:13378" type="url" class="w-full h-10" />
           <p class="text-xs text-fg-muted mt-1">{{ $strings.MessageInternalUrlDescription }}</p>
           <div class="flex items-center mt-2">
-            <ui-btn :disabled="processing || testingLocal || !detail.localAddress" type="button" :padding-x="3" class="h-8 text-sm" @click="testLocalAddress">{{ $strings.ButtonTest }}</ui-btn>
+            <ui-btn :disabled="processing || testingLocal || !detail.localAddress" type="button" :padding-x="3" :padding-y="0" class="h-8 text-sm" @click="testLocalAddress">{{ $strings.ButtonTest }}</ui-btn>
           </div>
           <p v-if="localTestText" class="text-xs mt-2" :class="localTestOk ? 'text-success' : 'text-error'">{{ localTestText }}</p>
           <p class="text-sm text-fg-muted mt-4 mb-1">{{ $strings.LabelHomeNetworkSsids }}</p>
           <ui-text-input v-model="detail.ssidText" :disabled="processing" placeholder="HomeWifi, HomeWifi-5G" class="w-full h-10" />
           <p class="text-xs text-fg-muted mt-1">{{ $strings.MessageHomeNetworkSsidsDescription }}</p>
-          <ui-btn :disabled="processing" type="button" :padding-x="3" class="h-8 text-sm mt-2" @click="addCurrentWifi">{{ $strings.ButtonAddCurrentNetwork }}</ui-btn>
+          <ui-btn :disabled="processing" type="button" :padding-x="3" :padding-y="0" class="h-8 text-sm mt-2" @click="addCurrentWifi">{{ $strings.ButtonAddCurrentNetwork }}</ui-btn>
 
           <!-- actions -->
           <div class="flex items-center mt-6">
@@ -79,10 +76,6 @@
         </form>
         <!-- username/password and auth methods -->
         <template v-else>
-          <div v-if="serverConfig.id" class="flex items-center mb-4" @click="showServerList">
-            <span class="material-symbols text-fg-muted">arrow_back</span>
-          </div>
-
           <div class="flex items-center">
             <p class="text-fg-muted">{{ serverConfig.address }}</p>
             <div class="flex-grow" />
@@ -612,6 +605,12 @@ export default {
     },
     addCustomHeaders() {
       this.showAddCustomHeaders = true
+    },
+    /** The page's back button: from the server details / login back to the server list. Returns false when there is nowhere to go inside the form. */
+    goBack() {
+      if (!this.showForm || !this.serverConnectionConfigs.length) return false
+      this.showServerList()
+      return true
     },
     showServerList() {
       this.showForm = false
