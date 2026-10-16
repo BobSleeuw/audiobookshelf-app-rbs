@@ -39,9 +39,9 @@
 
     <!-- one category -->
     <div v-else ref="section">
-      <template v-for="item in items">
-        <div v-if="item.dividerBefore || item.headingBefore" :key="item.id + '-divider'" class="w-full h-px bg-fg/10 my-2" />
-        <p v-if="item.headingBefore" :key="item.id + '-heading'" class="uppercase text-xs font-semibold text-fg-muted pt-2 pb-1">{{ item.headingBefore }}</p>
+      <template v-for="(item, index) in items">
+        <div v-if="(item.dividerBefore || item.headingBefore) && index > 0" :key="item.id + '-divider'" class="w-full h-px bg-fg/10 my-2" />
+        <p v-if="item.headingBefore" :key="item.id + '-heading'" class="uppercase text-xs font-semibold text-fg-muted pb-1" :class="index > 0 ? 'pt-2' : 'pt-1'">{{ item.headingBefore }}</p>
         <div :key="item.id" :data-item="item.id" class="rounded transition-colors duration-700" :class="highlightId === item.id ? 'bg-success bg-opacity-20' : ''">
           <settingsmock-row :item="item" :values="values" @pick="openPicker" />
         </div>

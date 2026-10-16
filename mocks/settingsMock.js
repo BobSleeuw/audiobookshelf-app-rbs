@@ -52,14 +52,14 @@ export const GROUPS = [
     description: 'Bluetooth, cellular and Android Auto',
     icon: 'sync_alt',
     items: [
-      { id: 'btAuto', short: 'Bluetooth auto play', type: 'toggle', label: 'Bluetooth auto play', help: 'Start playing your last book when one of the devices below connects.', default: true },
+      { id: 'btAuto', short: 'Bluetooth auto play', headingBefore: 'Bluetooth', type: 'toggle', label: 'Bluetooth auto play', default: true },
       { id: 'btDelay', short: 'Delay before playing', type: 'slider', plain: true, label: 'Delay before playing', min: 0, max: 30, unit: ' s', default: 5, showIf: 'btAuto' },
-      { id: 'btBackground', short: 'Start when app is closed', type: 'action', label: 'Start when the app is closed', help: 'Needs this app to be excluded from battery optimization.', buttonText: 'Allow', showIf: 'btAuto' },
-      { id: 'btDevices', short: 'Bluetooth devices', type: 'devices', label: 'Devices', help: 'Turn on the devices that should start playback when they connect.', showIf: 'btAuto', devices: BT_DEVICES },
+      { id: 'btBackground', short: 'Start when app is closed', type: 'action', label: 'Start when the app is closed', buttonText: 'Allow', showIf: 'btAuto' },
+      { id: 'btDevices', short: 'Bluetooth devices', type: 'devices', label: 'Play automatically when these devices connect', showIf: 'btAuto', devices: BT_DEVICES },
       { id: 'downloadCellular', short: 'Download using cellular', headingBefore: 'Mobile data', type: 'select', labelKey: 'LabelDownloadUsingCellular', options: ['Ask for confirmation', 'Always', 'Never'], default: 'Ask for confirmation' },
       { id: 'streamCellular', short: 'Stream using cellular', type: 'select', labelKey: 'LabelStreamingUsingCellular', options: ['Ask for confirmation', 'Always', 'Never'], default: 'Always' },
-      { id: 'autoBrowseLimit', short: 'Group by letter limit', headingBefore: 'Android Auto', type: 'select', label: 'Group by letter above', help: 'In Android Auto, a list with more series or authors than this is split into letters (A, B, C ...) that you tap to open. Shorter lists show everything at once.', options: ['25', '50', '100', '200', '500'], default: '100' },
-      { id: 'autoSeriesOrder', short: 'Series book order', type: 'select', label: 'Series book order', help: 'The order of the books when you open a series in Android Auto. Ascending starts with book 1.', options: ['Ascending', 'Descending'], default: 'Ascending' }
+      { id: 'autoBrowseLimit', short: 'Group by letter limit', headingBefore: 'Android Auto', type: 'select', label: 'Group by letter above', options: ['25 items', '50 items', '100 items', '200 items', '500 items'], default: '100 items' },
+      { id: 'autoSeriesOrder', short: 'Series book order', type: 'select', label: 'Series book order', options: ['Ascending', 'Descending'], default: 'Ascending' }
     ],
     summary: (v) => (v.btAuto ? 'Bluetooth auto play on' : 'Bluetooth auto play off')
   },

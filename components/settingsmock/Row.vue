@@ -87,7 +87,15 @@
   <!-- list of devices with an on / off toggle for each -->
   <div v-else-if="item.type === 'devices'" class="py-3">
     <p>{{ label }}</p>
-    <p v-if="item.help" class="text-xs text-fg-muted mt-0.5 mb-1">{{ item.help }}</p>
+    <p v-if="item.help" class="text-xs text-fg-muted mt-0.5">{{ item.help }}</p>
+
+    <!-- switches every device below on or off -->
+    <div class="flex items-center py-2 mt-1 cursor-pointer border-b border-fg/10" @click="setAllDevices(!allDevicesOn)">
+      <span class="material-symbols text-2xl text-fg-muted w-9 flex-shrink-0">devices</span>
+      <p class="flex-grow">All devices</p>
+      <ui-toggle-switch :value="allDevicesOn" class="pointer-events-none flex-shrink-0" />
+    </div>
+
     <div v-for="device in item.devices" :key="device.id" class="flex items-center py-2 cursor-pointer" @click="values[device.id] = !values[device.id]">
       <span class="material-symbols text-2xl text-fg-muted w-9 flex-shrink-0">{{ values[device.id] ? 'bluetooth_connected' : 'bluetooth' }}</span>
       <div class="flex-grow min-w-0 pr-4">
@@ -122,6 +130,9 @@ export default {
     isSpecial() {
       return !!this.item.special && this.values[this.item.id] === this.item.special
     },
+    allDevicesOn() {
+      return (this.item.devices || []).length > 0 && this.item.devices.every((d) => this.values[d.id])
+    },
     stepIndex() {
       return Math.max(0, (this.item.options || []).indexOf(this.values[this.item.id]))
     },
@@ -149,6 +160,9 @@ export default {
     },
     setClockTime(time) {
       this.values[this.clockKey] = time
+    },
+    setAllDevices(on) {
+      this.item.devices.forEach((d) => (this.values[d.id] = on))
     },
     toggle() {
       this.values[this.item.id] = !this.values[this.item.id]
