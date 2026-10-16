@@ -49,17 +49,17 @@ export const GROUPS = [
     id: 'connections',
     title: 'Connections & data',
     shortTitle: 'Connect',
-    description: 'Bluetooth, cellular and Android Auto',
+    description: 'Bluetooth, Android Auto and cellular',
     icon: 'sync_alt',
     items: [
       { id: 'btAuto', short: 'Bluetooth auto play', headingBefore: 'Bluetooth', type: 'toggle', label: 'Bluetooth auto play', default: true },
       { id: 'btDelay', short: 'Delay before playing', type: 'slider', plain: true, label: 'Delay before playing', min: 0, max: 30, unit: ' s', default: 5, showIf: 'btAuto' },
       { id: 'btBackground', short: 'Start when app is closed', type: 'action', label: 'Start when the app is closed', buttonText: 'Allow', showIf: 'btAuto' },
-      { id: 'btDevices', short: 'Bluetooth devices', type: 'devices', label: 'Play automatically when these devices connect', showIf: 'btAuto', devices: BT_DEVICES },
-      { id: 'downloadCellular', short: 'Download using cellular', headingBefore: 'Mobile data', type: 'select', labelKey: 'LabelDownloadUsingCellular', options: ['Ask for confirmation', 'Always', 'Never'], default: 'Ask for confirmation' },
-      { id: 'streamCellular', short: 'Stream using cellular', type: 'select', labelKey: 'LabelStreamingUsingCellular', options: ['Ask for confirmation', 'Always', 'Never'], default: 'Always' },
+      { id: 'btDevices', short: 'Bluetooth devices', type: 'devices', label: 'Auto play devices', showIf: 'btAuto', devices: BT_DEVICES },
       { id: 'autoBrowseLimit', short: 'Group by letter limit', headingBefore: 'Android Auto', type: 'select', label: 'Group by letter above', options: ['25 items', '50 items', '100 items', '200 items', '500 items'], default: '100 items' },
-      { id: 'autoSeriesOrder', short: 'Series book order', type: 'select', label: 'Series book order', options: ['Ascending', 'Descending'], default: 'Ascending' }
+      { id: 'autoSeriesOrder', short: 'Series book order', type: 'select', label: 'Series book order', options: ['Ascending', 'Descending'], default: 'Ascending' },
+      { id: 'downloadCellular', short: 'Download using cellular', headingBefore: 'Mobile data', type: 'select', labelKey: 'LabelDownloadUsingCellular', options: ['Ask for confirmation', 'Always', 'Never'], default: 'Ask for confirmation' },
+      { id: 'streamCellular', short: 'Stream using cellular', type: 'select', labelKey: 'LabelStreamingUsingCellular', options: ['Ask for confirmation', 'Always', 'Never'], default: 'Always' }
     ],
     summary: (v) => (v.btAuto ? 'Bluetooth auto play on' : 'Bluetooth auto play off')
   },
