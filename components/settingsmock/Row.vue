@@ -1,22 +1,20 @@
 <template>
   <!-- Same markup as the rows on the original Settings page -->
-  <div v-if="item.type === 'toggle'" class="flex items-center py-3">
-    <div class="w-10 flex justify-center" @click="toggle">
-      <ui-toggle-switch :value="!!values[item.id]" class="pointer-events-none" />
-    </div>
-    <p class="pl-4">{{ label }}</p>
+  <div v-if="item.type === 'toggle'" class="flex items-center py-3 cursor-pointer" @click="toggle">
+    <p class="flex-grow pr-4">{{ label }}</p>
+    <ui-toggle-switch :value="!!values[item.id]" class="pointer-events-none flex-shrink-0" />
   </div>
 
   <div v-else-if="item.type === 'select'" class="py-3 flex items-center">
-    <p class="pr-4 w-36">{{ label }}</p>
-    <div @click.stop="pick">
-      <ui-text-input :value="values[item.id]" readonly append-icon="expand_more" :autofocus="false" style="max-width: 200px" />
+    <p class="flex-grow pr-4">{{ label }}</p>
+    <div class="flex-shrink-0" @click.stop="pick">
+      <ui-text-input :value="values[item.id]" readonly append-icon="expand_more" :autofocus="false" style="width: 200px" />
     </div>
   </div>
 
   <div v-else-if="item.type === 'time'" class="py-3 flex items-center">
-    <p class="pr-4 w-36">{{ label }}</p>
-    <ui-text-input v-model="values[item.id]" type="time" :autofocus="false" style="width: 145px; max-width: 145px" />
+    <p class="flex-grow pr-4">{{ label }}</p>
+    <ui-text-input v-model="values[item.id]" type="time" :autofocus="false" class="flex-shrink-0" style="width: 145px" />
   </div>
 
   <div v-else-if="item.type === 'slider'" class="py-3">

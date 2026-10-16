@@ -1,11 +1,15 @@
 <template>
   <!-- Mockup A: categories (with the names of the settings inside) that open one page per category, with search.
        Rows, select boxes and pop-ups are the original app's own components and markup. -->
-  <div class="relative w-full h-full overflow-y-auto px-4 py-8 bg-bg text-fg">
+  <div class="relative w-full h-full flex flex-col overflow-hidden bg-bg text-fg">
+    <!-- header bar of a category page (title and back arrow) -->
+    <settingsmock-header v-if="current" :title="current.title" back @back="closeSection" />
+
+    <div class="flex-grow overflow-y-auto px-4" :class="current ? 'py-3' : 'py-6'">
     <!-- category list -->
     <template v-if="!current">
       <p class="uppercase text-xs font-semibold text-fg-muted mb-2">{{ $strings.HeaderSettings }}</p>
-      <ui-text-input v-model="query" prepend-icon="search" clearable :autofocus="false" placeholder="Search settings" class="mb-4" />
+      <ui-text-input v-model="query" prepend-icon="search" clearable :autofocus="false" placeholder="Search settings" class="settings-search mb-5" />
 
       <!-- search results -->
       <template v-if="query.trim()">
@@ -22,26 +26,24 @@
 
       <!-- categories -->
       <template v-else>
-        <div v-for="group in groups" :key="group.id" class="flex items-center bg-primary rounded-lg p-3 mb-2 cursor-pointer" @click="openSection(group)">
-          <span class="material-symbols text-2xl text-fg-muted w-10 flex-shrink-0">{{ group.icon }}</span>
+        <div v-for="group in groups" :key="group.id" class="flex items-center bg-primary rounded-lg px-4 py-5 mb-3 cursor-pointer" @click="openSection(group)">
+          <span class="material-symbols text-3xl text-fg-muted w-12 flex-shrink-0">{{ group.icon }}</span>
           <div class="flex-grow min-w-0 pr-2">
-            <p>{{ group.title }}</p>
-            <p class="text-xs text-fg-muted">{{ names(group) }}</p>
+            <p class="text-lg">{{ group.title }}</p>
+            <p class="text-sm text-fg-muted mt-1">{{ names(group) }}</p>
           </div>
-          <span class="material-symbols text-fg-muted">chevron_right</span>
+          <span class="material-symbols text-2xl text-fg-muted">chevron_right</span>
         </div>
       </template>
     </template>
 
     <!-- one category -->
     <div v-else ref="section">
-      <div class="flex items-center mb-2 cursor-pointer text-fg-muted" @click="closeSection">
-        <span class="material-symbols text-xl mr-1">arrow_back</span>
-        <p class="uppercase text-xs font-semibold">{{ current.title }}</p>
-      </div>
       <div v-for="item in items" :key="item.id" :data-item="item.id" class="rounded transition-colors duration-700" :class="highlightId === item.id ? 'bg-success bg-opacity-20' : ''">
         <settingsmock-row :item="item" :values="values" @pick="openPicker" />
       </div>
+    </div>
+
     </div>
 
     <!-- choice pop-ups: the app's own dialog, and a theme picker with previews -->
@@ -127,3 +129,12 @@ export default {
   }
 }
 </script>
+
+<style>
+/* A smaller search box than the default input */
+.settings-search input {
+  padding-top: 0.3rem;
+  padding-bottom: 0.3rem;
+  font-size: 0.875rem;
+}
+</style>
