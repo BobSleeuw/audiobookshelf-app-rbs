@@ -485,7 +485,7 @@ export default {
       const cfg = this.serverConfig || {}
       this.detail = {
         alias: cfg.alias || '',
-        address: cfg.remoteAddress || cfg.address || '',
+        address: cfg.remoteAddress || (cfg.address !== cfg.localAddress ? cfg.address : '') || '',
         localAddress: cfg.localAddress || '',
         ssidText: (cfg.localSsids || []).join(', ')
       }
@@ -578,6 +578,7 @@ export default {
           id: this.serverConfig.id,
           address: validated,
           remoteAddress: validated,
+          userEdit: true,
           alias: this.detail.alias.trim(),
           localAddress: local,
           localSsids: local ? this.parseSsids() : [],
@@ -1044,10 +1045,12 @@ export default {
 
       this.serverConfig.version = serverSettings.version
 
+      const isNewServer = !this.serverConfig.id
       var serverConnectionConfig = await this.$db.setServerConnectionConfig(this.serverConfig)
 
-      // Alias and internal URL entered on the details screen of a new server
-      if ((this.serverConfig.localAddress || this.serverConfig.alias) && serverConnectionConfig?.id) {
+      // Alias and internal URL entered on the details screen of a NEW server. Saved servers already have these
+      // stored, and the address in use may be the internal one, so they must not be written again here.
+      if (isNewServer && (this.serverConfig.localAddress || this.serverConfig.alias) && serverConnectionConfig?.id) {
         try {
           let updated = await this.$db.updateServerAddresses({ id: serverConnectionConfig.id, remoteAddress: this.serverConfig.address, alias: this.serverConfig.alias || '', localAddress: this.serverConfig.localAddress || '', localSsids: this.serverConfig.localSsids || [] })
           const active = await this.$localNetwork.resolveAddress(updated)

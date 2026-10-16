@@ -91,12 +91,14 @@ class AbsDatabaseWeb extends WebPlugin {
     const ssc = deviceData.serverConnectionConfigs.find((_ssc) => _ssc.id == payload.id)
     if (!ssc) throw new Error('Server connection config not found')
     if (payload.address) ssc.address = payload.address
-    if ('remoteAddress' in payload) ssc.remoteAddress = payload.remoteAddress || null
+    // The external URL is only set once or by an explicit user edit, never by the app itself
+    const remoteChanged = 'remoteAddress' in payload && (payload.userEdit || !ssc.remoteAddress)
+    if (remoteChanged) ssc.remoteAddress = payload.remoteAddress || null
     if ('localAddress' in payload) ssc.localAddress = payload.localAddress || null
     if ('localSsids' in payload) ssc.localSsids = payload.localSsids || []
     if ('alias' in payload) ssc.alias = (payload.alias || '').trim() || null
     if ('customHeaders' in payload) ssc.customHeaders = payload.customHeaders || {}
-    if (payload.remoteAddress) ssc.name = `${payload.remoteAddress} (${ssc.username})`
+    if (remoteChanged && payload.remoteAddress) ssc.name = `${payload.remoteAddress} (${ssc.username})`
     localStorage.setItem('device', JSON.stringify(deviceData))
     return ssc
   }

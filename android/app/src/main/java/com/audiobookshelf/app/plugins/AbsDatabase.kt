@@ -186,7 +186,7 @@ class AbsDatabase : Plugin() {
 
   /**
    * Updates the address in use and/or the local network settings of a saved server, without touching the login.
-   * Accepts: id, address, remoteAddress, alias (empty clears), localAddress (empty clears), localSsids (array), customHeaders
+   * Accepts: id, address, remoteAddress (only applied when empty or userEdit is true), userEdit, alias (empty clears), localAddress (empty clears), localSsids (array), customHeaders
    */
   @PluginMethod
   fun updateServerAddresses(call: PluginCall) {
@@ -198,7 +198,14 @@ class AbsDatabase : Plugin() {
     }
     val data = call.data
     if (data.has("address")) call.getString("address")?.takeIf { it.isNotBlank() }?.let { config.address = it }
-    if (data.has("remoteAddress")) config.remoteAddress = call.getString("remoteAddress")?.takeIf { it.isNotBlank() }
+    // The external URL is only set once (when empty) or when the user edits it (userEdit). The app itself
+    // must never overwrite it, e.g. with the internal URL that is in use on the home network.
+    val userEdit = call.getBoolean("userEdit", false) ?: false
+    var remoteChanged = false
+    if (data.has("remoteAddress") && (userEdit || config.remoteAddress == null)) {
+      config.remoteAddress = call.getString("remoteAddress")?.takeIf { it.isNotBlank() }
+      remoteChanged = true
+    }
     if (data.has("alias")) config.alias = call.getString("alias")?.trim()?.takeIf { it.isNotEmpty() }
     if (data.has("customHeaders")) {
       val headers = mutableMapOf<String, String>()
@@ -207,7 +214,7 @@ class AbsDatabase : Plugin() {
       }
       config.customHeaders = headers
     }
-    if (config.remoteAddress != null && data.has("remoteAddress")) config.name = "${config.remoteAddress} (${config.username})"
+    if (config.remoteAddress != null && remoteChanged) config.name = "${config.remoteAddress} (${config.username})"
     if (data.has("localAddress")) config.localAddress = call.getString("localAddress")?.takeIf { it.isNotBlank() }
     if (data.has("localSsids")) {
       val ssids = mutableListOf<String>()
