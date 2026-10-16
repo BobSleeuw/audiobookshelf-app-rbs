@@ -256,7 +256,7 @@ export default {
             { id: 'btDelay', type: 'slider', plain: true, label: s.LabelDelayBeforePlaying, min: 0, max: this.rbs.maxBluetoothDelaySeconds, unit: ' s', showIf: ['btAuto'], android: true },
             { id: 'btBackground', type: 'action', label: s.LabelStartWhenAppClosed, buttonText: s.ButtonAllow, done: this.rbs.ignoringBatteryOptimizations, showIf: ['btAuto'], android: true },
             { id: 'btDevices', type: 'devices', label: s.LabelAutoPlayDevices, loading: this.bluetooth.loading, granted: this.bluetooth.granted, devices: this.bluetooth.devices, showIf: ['btAuto'], android: true },
-            { id: 'autoBrowseLimit', type: 'select', label: s.LabelGroupByLetterAbove, help: s.MessageAndroidAutoBrowseGroupHelp, headingBefore: s.LabelAndroidAuto, options: this.browseLimitItems, android: true },
+            { id: 'autoBrowseLimit', type: 'select', label: s.LabelGroupByLetterAbove, headingBefore: s.LabelAndroidAuto, options: this.browseLimitItems, android: true },
             { id: 'autoSeriesOrder', type: 'select', label: s.LabelSeriesBookOrder, options: this.seriesOrderItems, android: true },
             { id: 'downloadCellular', type: 'select', label: s.LabelDownloadUsingCellular, headingBefore: s.LabelMobileData, options: this.cellularItems },
             { id: 'streamCellular', type: 'select', label: s.LabelStreamingUsingCellular, options: this.cellularItems }
