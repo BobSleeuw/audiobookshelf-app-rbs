@@ -4,6 +4,7 @@ import Vue from 'vue'
  * Settings mockups: every setting of the current Settings page grouped in four categories.
  * Labels use the app's real strings (labelKey). Values are local to the mockup and are not saved.
  *
+ * item.dividerBefore: draw a divider line above the setting
  * item.type: toggle | select | slider | steps | link | time
  * item.showIf: id of a toggle that must be on for the item to show
  */
@@ -16,6 +17,7 @@ export const GROUPS = [
   {
     id: 'appearance',
     title: 'Appearance',
+    description: 'Theme, language and display',
     icon: 'palette',
     items: [
       { id: 'theme', short: 'Theme', type: 'select', labelKey: 'LabelTheme', options: ['Black', 'Dark', 'Light'], default: 'Dark' },
@@ -30,14 +32,15 @@ export const GROUPS = [
     id: 'playback',
     title: 'Playback & audio',
     shortTitle: 'Playback',
+    description: 'Jumping, seeking and volume boost',
     icon: 'play_circle',
     items: [
       { id: 'jumpBack', short: 'Jump back', type: 'steps', labelKey: 'LabelJumpBackwardsTime', options: JUMP_OPTIONS, default: '10s' },
       { id: 'jumpForward', short: 'Jump forward', type: 'steps', labelKey: 'LabelJumpForwardsTime', options: JUMP_OPTIONS, default: '30s' },
-      { id: 'disableAutoRewind', short: 'Auto rewind', type: 'toggle', labelKey: 'LabelDisableAutoRewind', default: false },
+      { id: 'disableAutoRewind', short: 'Auto rewind', dividerBefore: true, type: 'toggle', labelKey: 'LabelDisableAutoRewind', default: false },
       { id: 'mp3Seeking', short: '.mp3 seeking', type: 'toggle', label: 'Enable .mp3 index seeking', default: false },
       { id: 'mediaSeeking', short: 'Media control seeking', type: 'toggle', labelKey: 'LabelAllowSeekingOnMediaControls', default: false },
-      { id: 'boostEnabled', short: 'Volume boost', type: 'toggle', labelKey: 'LabelVolumeBoost', default: true },
+      { id: 'boostEnabled', short: 'Volume boost', dividerBefore: true, type: 'toggle', labelKey: 'LabelVolumeBoost', default: true },
       { id: 'volumeBoost', short: 'Boost level', type: 'slider', label: 'Boost level', min: 0, max: 15, unit: ' dB', default: 6, showIf: 'boostEnabled' },
       { id: 'autoBoost', short: 'Android Auto boost level', type: 'slider', label: 'Boost level on Android Auto', min: 0, max: 15, unit: ' dB', default: 9, showIf: 'boostEnabled' }
     ],
@@ -46,6 +49,7 @@ export const GROUPS = [
   {
     id: 'sleep',
     title: 'Sleep timer',
+    description: 'Auto timer, shaking and fade out',
     icon: 'bedtime',
     items: [
       { id: 'disableShake', short: 'Shake to reset', type: 'toggle', labelKey: 'LabelDisableShakeToReset', default: false },
@@ -65,6 +69,7 @@ export const GROUPS = [
     id: 'connections',
     title: 'Connections & data',
     shortTitle: 'Connect',
+    description: 'Bluetooth, Android Auto, cellular',
     icon: 'sync_alt',
     items: [
       { id: 'bluetooth', short: 'Bluetooth auto play', icon: 'bluetooth', type: 'link', labelKey: 'HeaderBluetoothAutoPlay', valueText: '2 devices on · 5 s delay' },

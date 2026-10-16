@@ -30,7 +30,7 @@
           <span class="material-symbols text-3xl text-fg-muted w-12 flex-shrink-0">{{ group.icon }}</span>
           <div class="flex-grow min-w-0 pr-2">
             <p class="text-lg">{{ group.title }}</p>
-            <p class="text-sm text-fg-muted mt-1">{{ names(group) }}</p>
+            <p class="text-sm text-fg-muted mt-1 truncate">{{ group.description }}</p>
           </div>
           <span class="material-symbols text-2xl text-fg-muted">chevron_right</span>
         </div>
@@ -39,9 +39,12 @@
 
     <!-- one category -->
     <div v-else ref="section">
-      <div v-for="item in items" :key="item.id" :data-item="item.id" class="rounded transition-colors duration-700" :class="highlightId === item.id ? 'bg-success bg-opacity-20' : ''">
-        <settingsmock-row :item="item" :values="values" @pick="openPicker" />
-      </div>
+      <template v-for="item in items">
+        <div v-if="item.dividerBefore" :key="item.id + '-divider'" class="w-full h-px bg-fg/10 my-2" />
+        <div :key="item.id" :data-item="item.id" class="rounded transition-colors duration-700" :class="highlightId === item.id ? 'bg-success bg-opacity-20' : ''">
+          <settingsmock-row :item="item" :values="values" @pick="openPicker" />
+        </div>
+      </template>
     </div>
 
     </div>
@@ -86,13 +89,6 @@ export default {
     }
   },
   methods: {
-    /** Names of the main settings in a category (settings that only show under another one are left out) */
-    names(group) {
-      return group.items
-        .filter((i) => !i.showIf && !i.showIfNot)
-        .map((i) => i.short)
-        .join(' · ')
-    },
     openPicker(item) {
       this.pickerItem = item
       if (item.id === 'theme') this.showThemePicker = true
