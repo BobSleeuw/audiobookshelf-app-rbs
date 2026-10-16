@@ -1,53 +1,52 @@
 <template>
-  <!-- Mockup A: categories list (names of the settings inside, no values) that opens one page per category, with search -->
-  <div class="relative w-full h-full flex flex-col overflow-hidden bg-bg text-fg">
-    <settingsmock-header :title="current ? current.title : 'Settings'" :back="!!current" @back="closeSection" />
+  <!-- Mockup A: categories (with the names of the settings inside) that open one page per category, with search.
+       Rows, select boxes and pop-ups are the original app's own components and markup. -->
+  <div class="relative w-full h-full overflow-y-auto px-4 py-8 bg-bg text-fg">
+    <!-- category list -->
+    <template v-if="!current">
+      <p class="uppercase text-xs font-semibold text-fg-muted mb-2">{{ $strings.HeaderSettings }}</p>
+      <ui-text-input v-model="query" prepend-icon="search" clearable :autofocus="false" placeholder="Search settings" class="mb-4" />
 
-    <!-- search -->
-    <div v-if="!current" class="flex-shrink-0 px-3 pt-3">
-      <div class="flex items-center bg-primary rounded-lg px-3 h-10">
-        <span class="material-symbols text-fg-muted mr-2">search</span>
-        <input v-model="query" type="text" placeholder="Search settings" class="flex-grow bg-transparent outline-none" />
-        <button v-if="query" type="button" class="material-symbols text-fg-muted" @click="query = ''">close</button>
-      </div>
-    </div>
-
-    <!-- search results -->
-    <div v-if="!current && query.trim()" class="flex-grow overflow-y-auto p-3">
-      <p v-if="!results.length" class="py-8 text-center text-fg-muted">No settings found</p>
-      <div v-else class="bg-primary rounded-lg">
-        <button v-for="result in results" :key="result.item.id" type="button" class="w-full flex items-center text-left px-3 py-3 border-b border-fg/10 last:border-0" @click="openResult(result)">
-          <span class="material-symbols text-fg-muted mr-3">{{ result.group.icon }}</span>
+      <!-- search results -->
+      <template v-if="query.trim()">
+        <p v-if="!results.length" class="py-6 text-center text-fg-muted">No settings found</p>
+        <div v-for="result in results" :key="result.item.id" class="flex items-center py-3 cursor-pointer" @click="openResult(result)">
+          <span class="material-symbols text-2xl text-fg-muted w-10">{{ result.group.icon }}</span>
           <div class="flex-grow min-w-0">
             <p class="truncate">{{ result.item.short }}</p>
             <p class="text-xs text-fg-muted truncate">{{ result.group.title }}</p>
           </div>
           <span class="material-symbols text-fg-muted">chevron_right</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- category list -->
-    <div v-else-if="!current" class="flex-grow overflow-y-auto p-3 space-y-2">
-      <button v-for="group in groups" :key="group.id" type="button" class="w-full flex items-center text-left bg-primary rounded-lg p-3" @click="openSection(group)">
-        <span class="material-symbols text-2xl text-fg-muted w-10 flex-shrink-0">{{ group.icon }}</span>
-        <div class="flex-grow min-w-0 pr-2">
-          <p class="font-semibold">{{ group.title }}</p>
-          <p class="text-xs text-fg-muted names">{{ names(group) }}</p>
         </div>
-        <span class="material-symbols text-fg-muted">chevron_right</span>
-      </button>
-    </div>
+      </template>
+
+      <!-- categories -->
+      <template v-else>
+        <div v-for="group in groups" :key="group.id" class="flex items-center bg-primary rounded-lg p-3 mb-2 cursor-pointer" @click="openSection(group)">
+          <span class="material-symbols text-2xl text-fg-muted w-10 flex-shrink-0">{{ group.icon }}</span>
+          <div class="flex-grow min-w-0 pr-2">
+            <p>{{ group.title }}</p>
+            <p class="text-xs text-fg-muted">{{ names(group) }}</p>
+          </div>
+          <span class="material-symbols text-fg-muted">chevron_right</span>
+        </div>
+      </template>
+    </template>
 
     <!-- one category -->
-    <div v-else ref="section" class="flex-grow overflow-y-auto px-4">
-      <div v-for="item in items" :key="item.id" :data-item="item.id" class="border-b border-fg/10 last:border-0 transition-colors duration-700" :class="highlightId === item.id ? 'bg-success/20' : ''">
-        <settingsmock-row :item="item" :values="values" @pick="picker = $event" />
+    <div v-else ref="section">
+      <div class="flex items-center mb-2 cursor-pointer text-fg-muted" @click="closeSection">
+        <span class="material-symbols text-xl mr-1">arrow_back</span>
+        <p class="uppercase text-xs font-semibold">{{ current.title }}</p>
+      </div>
+      <div v-for="item in items" :key="item.id" :data-item="item.id" class="rounded transition-colors duration-700" :class="highlightId === item.id ? 'bg-success bg-opacity-20' : ''">
+        <settingsmock-row :item="item" :values="values" @pick="openPicker" />
       </div>
     </div>
 
-    <!-- choice pop-up -->
-    <settingsmock-picker v-if="picker" :title="$strings[picker.labelKey]" :options="picker.options" :value="values[picker.id]" @select="choose" @close="picker = null" />
+    <!-- choice pop-ups: the app's own dialog, and a theme picker with previews -->
+    <modals-dialog v-model="showDialog" :items="dialogOptions" :selected="dialogSelected" @action="choose" />
+    <settingsmock-theme-picker v-model="showThemePicker" :selected="themeValue" @action="chooseTheme" />
   </div>
 </template>
 
@@ -56,7 +55,7 @@ import { GROUPS, createValues, visibleItems } from '@/mocks/settingsMock'
 
 export default {
   data() {
-    return { groups: GROUPS, values: createValues(), current: null, query: '', highlightId: null, picker: null }
+    return { groups: GROUPS, values: createValues(), current: null, query: '', highlightId: null, pickerItem: null, showDialog: false, showThemePicker: false }
   },
   computed: {
     items() {
@@ -72,6 +71,16 @@ export default {
         })
       })
       return found
+    },
+    dialogOptions() {
+      return this.pickerItem ? this.pickerItem.options : []
+    },
+    dialogSelected() {
+      return this.pickerItem ? this.values[this.pickerItem.id] : ''
+    },
+    /** 'black' | 'dark' | 'light' */
+    themeValue() {
+      return String(this.values.theme).toLowerCase()
     }
   },
   methods: {
@@ -81,6 +90,19 @@ export default {
         .filter((i) => !i.showIf && !i.showIfNot)
         .map((i) => i.short)
         .join(' · ')
+    },
+    openPicker(item) {
+      this.pickerItem = item
+      if (item.id === 'theme') this.showThemePicker = true
+      else this.showDialog = true
+    },
+    choose(option) {
+      this.values[this.pickerItem.id] = option
+      this.showDialog = false
+    },
+    chooseTheme(theme) {
+      this.values.theme = theme.charAt(0).toUpperCase() + theme.slice(1)
+      this.showThemePicker = false
     },
     openSection(group, focusId = null) {
       this.current = group
@@ -93,10 +115,6 @@ export default {
         this.highlightId = focusId
         setTimeout(() => (this.highlightId = null), 1800)
       })
-    },
-    choose(option) {
-      this.values[this.picker.id] = option
-      this.picker = null
     },
     closeSection() {
       this.current = null

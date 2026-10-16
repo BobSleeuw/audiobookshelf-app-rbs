@@ -15,7 +15,7 @@ export const GROUPS = [
     title: 'Appearance',
     icon: 'palette',
     items: [
-      { id: 'theme', short: 'Theme', type: 'select', labelKey: 'LabelTheme', options: ['Dark', 'Light', 'Black'], default: 'Dark' },
+      { id: 'theme', short: 'Theme', type: 'select', labelKey: 'LabelTheme', options: ['Black', 'Dark', 'Light'], default: 'Dark' },
       { id: 'language', short: 'Language', type: 'select', labelKey: 'LabelLanguage', options: LANGUAGES, default: 'English' },
       { id: 'lockOrientation', short: 'Lock orientation', type: 'toggle', labelKey: 'LabelLockOrientation', default: false },
       { id: 'bookshelfView', short: 'Bookshelf view', type: 'toggle', labelKey: 'LabelUseBookshelfView', default: true },
@@ -63,7 +63,7 @@ export const GROUPS = [
     shortTitle: 'Connect',
     icon: 'sync_alt',
     items: [
-      { id: 'bluetooth', short: 'Bluetooth auto play', type: 'link', labelKey: 'HeaderBluetoothAutoPlay', valueText: '2 devices on · 5 s delay' },
+      { id: 'bluetooth', short: 'Bluetooth auto play', icon: 'bluetooth', type: 'link', labelKey: 'HeaderBluetoothAutoPlay', valueText: '2 devices on · 5 s delay' },
       { id: 'autoBrowseLimit', short: 'Android Auto browse limit', type: 'select', labelKey: 'LabelAndroidAutoBrowseLimitForGrouping', options: ['50', '100', '200'], default: '100' },
       { id: 'autoSeriesOrder', short: 'Android Auto series order', type: 'select', labelKey: 'LabelAndroidAutoBrowseSeriesSequenceOrder', options: ['Ascending', 'Descending'], default: 'Ascending' },
       { id: 'downloadCellular', short: 'Download on cellular', type: 'select', labelKey: 'LabelDownloadUsingCellular', options: ['Ask', 'Always', 'Never'], default: 'Ask' },

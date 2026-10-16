@@ -1,22 +1,36 @@
 <template>
-  <div class="flex items-center py-3 min-h-[3.25rem]" @click="onClick">
-    <div class="flex-grow min-w-0 pr-3">
-      <p class="truncate">{{ label }}</p>
-      <p v-if="item.type === 'link'" class="text-xs text-fg-muted truncate">{{ item.valueText }}</p>
+  <!-- Same markup as the rows on the original Settings page -->
+  <div v-if="item.type === 'toggle'" class="flex items-center py-3">
+    <div class="w-10 flex justify-center" @click="toggle">
+      <ui-toggle-switch :value="!!values[item.id]" class="pointer-events-none" />
     </div>
+    <p class="pl-4">{{ label }}</p>
+  </div>
 
-    <ui-toggle-switch v-if="item.type === 'toggle'" :value="!!values[item.id]" class="pointer-events-none" />
-
-    <div v-else-if="item.type === 'slider'" class="flex items-center" @click.stop>
-      <input v-model.number="values[item.id]" type="range" :min="item.min" :max="item.max" step="1" style="width: 7rem" />
-      <p class="text-sm tabular-nums w-14 text-right">{{ values[item.id] > 0 ? '+' + values[item.id] + item.unit : 'Off' }}</p>
+  <div v-else-if="item.type === 'select'" class="py-3 flex items-center">
+    <p class="pr-4 w-36">{{ label }}</p>
+    <div @click.stop="pick">
+      <ui-text-input :value="values[item.id]" readonly append-icon="expand_more" :autofocus="false" style="max-width: 200px" />
     </div>
+  </div>
 
-    <span v-else-if="item.type === 'select' || item.type === 'time'" class="text-sm text-fg-muted flex items-center">
-      {{ values[item.id] }}<span class="material-symbols text-lg ml-1">{{ item.type === 'time' ? 'schedule' : 'expand_more' }}</span>
-    </span>
+  <div v-else-if="item.type === 'time'" class="py-3 flex items-center">
+    <p class="pr-4 w-36">{{ label }}</p>
+    <ui-text-input v-model="values[item.id]" type="time" :autofocus="false" style="width: 145px; max-width: 145px" />
+  </div>
 
-    <span v-else-if="item.type === 'link'" class="material-symbols text-fg-muted">chevron_right</span>
+  <div v-else-if="item.type === 'slider'" class="py-3">
+    <div class="flex items-center">
+      <p class="flex-grow">{{ label }}</p>
+      <p class="text-sm tabular-nums">{{ values[item.id] > 0 ? '+' + values[item.id] + item.unit : $strings.LabelOff }}</p>
+    </div>
+    <input v-model.number="values[item.id]" type="range" :min="item.min" :max="item.max" step="1" class="w-full" />
+  </div>
+
+  <div v-else-if="item.type === 'link'" class="py-3 flex items-center">
+    <span class="material-symbols text-2xl text-fg-muted">{{ item.icon || 'chevron_right' }}</span>
+    <p class="pl-4 flex-grow">{{ label }}</p>
+    <span class="material-symbols text-fg-muted">chevron_right</span>
   </div>
 </template>
 
@@ -32,18 +46,16 @@ export default {
     }
   },
   methods: {
-    onClick() {
-      const item = this.item
-      if (item.type === 'toggle') {
-        this.values[item.id] = !this.values[item.id]
-      } else if (item.type === 'select') {
-        if (this.$listeners.pick) {
-          this.$emit('pick', item)
-        } else {
-          // Mockups without a picker: cycle through the options
-          const index = item.options.indexOf(this.values[item.id])
-          this.values[item.id] = item.options[(index + 1) % item.options.length]
-        }
+    toggle() {
+      this.values[this.item.id] = !this.values[this.item.id]
+    },
+    pick() {
+      if (this.$listeners.pick) {
+        this.$emit('pick', this.item)
+      } else {
+        // Mockups without a pop-up: cycle through the options
+        const options = this.item.options
+        this.values[this.item.id] = options[(options.indexOf(this.values[this.item.id]) + 1) % options.length]
       }
     }
   }
