@@ -13,11 +13,11 @@ export const GROUPS = [
     title: 'Appearance',
     icon: 'palette',
     items: [
-      { id: 'bookshelfView', type: 'toggle', labelKey: 'LabelUseBookshelfView', default: true },
-      { id: 'theme', type: 'select', labelKey: 'LabelTheme', options: ['Dark', 'Light', 'Black'], default: 'Dark' },
-      { id: 'language', type: 'select', labelKey: 'LabelLanguage', options: ['English', 'Nederlands', 'Deutsch'], default: 'English' },
-      { id: 'lockOrientation', type: 'toggle', labelKey: 'LabelLockOrientation', default: false },
-      { id: 'haptics', type: 'select', labelKey: 'LabelHapticFeedback', options: ['None', 'Light', 'Medium', 'Heavy'], default: 'Light' }
+      { id: 'bookshelfView', short: 'Bookshelf view', type: 'toggle', labelKey: 'LabelUseBookshelfView', default: true },
+      { id: 'theme', short: 'Theme', type: 'select', labelKey: 'LabelTheme', options: ['Dark', 'Light', 'Black'], default: 'Dark' },
+      { id: 'language', short: 'Language', type: 'select', labelKey: 'LabelLanguage', options: ['English', 'Nederlands', 'Deutsch'], default: 'English' },
+      { id: 'lockOrientation', short: 'Lock orientation', type: 'toggle', labelKey: 'LabelLockOrientation', default: false },
+      { id: 'haptics', short: 'Haptic feedback', type: 'select', labelKey: 'LabelHapticFeedback', options: ['None', 'Light', 'Medium', 'Heavy'], default: 'Light' }
     ],
     summary: (v) => `${v.theme} theme · ${v.language} · ${v.bookshelfView ? 'Bookshelf view' : 'List view'}`
   },
@@ -27,13 +27,13 @@ export const GROUPS = [
     shortTitle: 'Playback',
     icon: 'play_circle',
     items: [
-      { id: 'jumpBack', type: 'select', labelKey: 'LabelJumpBackwardsTime', options: ['5s', '10s', '15s', '30s'], default: '10s' },
-      { id: 'jumpForward', type: 'select', labelKey: 'LabelJumpForwardsTime', options: ['10s', '30s', '60s'], default: '30s' },
-      { id: 'disableAutoRewind', type: 'toggle', labelKey: 'LabelDisableAutoRewind', default: false },
-      { id: 'mp3Seeking', type: 'toggle', labelKey: 'LabelEnableMp3IndexSeeking', default: false },
-      { id: 'mediaSeeking', type: 'toggle', labelKey: 'LabelAllowSeekingOnMediaControls', default: false },
-      { id: 'volumeBoost', type: 'slider', labelKey: 'LabelVolumeBoost', min: 0, max: 15, unit: ' dB', default: 6 },
-      { id: 'autoBoost', type: 'slider', labelKey: 'LabelAndroidAutoVolumeBoost', min: 0, max: 15, unit: ' dB', default: 9 }
+      { id: 'jumpBack', short: 'Jump back', type: 'select', labelKey: 'LabelJumpBackwardsTime', options: ['5s', '10s', '15s', '30s'], default: '10s' },
+      { id: 'jumpForward', short: 'Jump forward', type: 'select', labelKey: 'LabelJumpForwardsTime', options: ['10s', '30s', '60s'], default: '30s' },
+      { id: 'disableAutoRewind', short: 'Auto rewind', type: 'toggle', labelKey: 'LabelDisableAutoRewind', default: false },
+      { id: 'mp3Seeking', short: 'MP3 seeking', type: 'toggle', labelKey: 'LabelEnableMp3IndexSeeking', default: false },
+      { id: 'mediaSeeking', short: 'Media control seeking', type: 'toggle', labelKey: 'LabelAllowSeekingOnMediaControls', default: false },
+      { id: 'volumeBoost', short: 'Volume boost', type: 'slider', labelKey: 'LabelVolumeBoost', min: 0, max: 15, unit: ' dB', default: 6 },
+      { id: 'autoBoost', short: 'Android Auto boost', type: 'slider', labelKey: 'LabelAndroidAutoVolumeBoost', min: 0, max: 15, unit: ' dB', default: 9 }
     ],
     summary: (v) => `Jump ${v.jumpBack} / ${v.jumpForward} · Boost ${v.volumeBoost ? '+' + v.volumeBoost + ' dB' : 'off'}`
   },
@@ -42,16 +42,16 @@ export const GROUPS = [
     title: 'Sleep timer',
     icon: 'bedtime',
     items: [
-      { id: 'disableShake', type: 'toggle', labelKey: 'LabelDisableShakeToReset', default: false },
-      { id: 'shakeSensitivity', type: 'select', labelKey: 'LabelShakeSensitivity', options: ['Very low', 'Low', 'Medium', 'High'], default: 'Medium', showIfNot: 'disableShake' },
-      { id: 'disableFade', type: 'toggle', labelKey: 'LabelDisableAudioFadeOut', default: false },
-      { id: 'disableVibrate', type: 'toggle', labelKey: 'LabelDisableVibrateOnReset', default: false },
-      { id: 'chime', type: 'toggle', labelKey: 'LabelSleepTimerAlmostDoneChime', default: true },
-      { id: 'autoTimer', type: 'toggle', labelKey: 'LabelAutoSleepTimer', default: true },
-      { id: 'autoStart', type: 'time', labelKey: 'LabelStartTime', default: '22:00', showIf: 'autoTimer' },
-      { id: 'autoEnd', type: 'time', labelKey: 'LabelEndTime', default: '06:00', showIf: 'autoTimer' },
-      { id: 'autoLength', type: 'select', labelKey: 'LabelSleepTimer', options: ['15 min', '30 min', '45 min', '60 min'], default: '15 min', showIf: 'autoTimer' },
-      { id: 'autoRewind', type: 'toggle', labelKey: 'LabelAutoSleepTimerAutoRewind', default: false, showIf: 'autoTimer' }
+      { id: 'disableShake', short: 'Shake to reset', type: 'toggle', labelKey: 'LabelDisableShakeToReset', default: false },
+      { id: 'shakeSensitivity', short: 'Shake sensitivity', type: 'select', labelKey: 'LabelShakeSensitivity', options: ['Very low', 'Low', 'Medium', 'High'], default: 'Medium', showIfNot: 'disableShake' },
+      { id: 'disableFade', short: 'Fade out', type: 'toggle', labelKey: 'LabelDisableAudioFadeOut', default: false },
+      { id: 'disableVibrate', short: 'Vibrate on reset', type: 'toggle', labelKey: 'LabelDisableVibrateOnReset', default: false },
+      { id: 'chime', short: 'Almost-done chime', type: 'toggle', labelKey: 'LabelSleepTimerAlmostDoneChime', default: true },
+      { id: 'autoTimer', short: 'Auto sleep timer', type: 'toggle', labelKey: 'LabelAutoSleepTimer', default: true },
+      { id: 'autoStart', short: 'Auto timer start time', type: 'time', labelKey: 'LabelStartTime', default: '22:00', showIf: 'autoTimer' },
+      { id: 'autoEnd', short: 'Auto timer end time', type: 'time', labelKey: 'LabelEndTime', default: '06:00', showIf: 'autoTimer' },
+      { id: 'autoLength', short: 'Auto timer length', type: 'select', labelKey: 'LabelSleepTimer', options: ['15 min', '30 min', '45 min', '60 min'], default: '15 min', showIf: 'autoTimer' },
+      { id: 'autoRewind', short: 'Auto timer rewind', type: 'toggle', labelKey: 'LabelAutoSleepTimerAutoRewind', default: false, showIf: 'autoTimer' }
     ],
     summary: (v) => (v.autoTimer ? `Auto ${v.autoStart}–${v.autoEnd} · ${v.autoLength}` : 'Auto sleep timer off')
   },
@@ -61,11 +61,11 @@ export const GROUPS = [
     shortTitle: 'Connect',
     icon: 'sync_alt',
     items: [
-      { id: 'bluetooth', type: 'link', labelKey: 'HeaderBluetoothAutoPlay', valueText: '2 devices on · 5 s delay' },
-      { id: 'autoBrowseLimit', type: 'select', labelKey: 'LabelAndroidAutoBrowseLimitForGrouping', options: ['50', '100', '200'], default: '100' },
-      { id: 'autoSeriesOrder', type: 'select', labelKey: 'LabelAndroidAutoBrowseSeriesSequenceOrder', options: ['Ascending', 'Descending'], default: 'Ascending' },
-      { id: 'downloadCellular', type: 'select', labelKey: 'LabelDownloadUsingCellular', options: ['Ask', 'Always', 'Never'], default: 'Ask' },
-      { id: 'streamCellular', type: 'select', labelKey: 'LabelStreamingUsingCellular', options: ['Ask', 'Always', 'Never'], default: 'Always' }
+      { id: 'bluetooth', short: 'Bluetooth auto play', type: 'link', labelKey: 'HeaderBluetoothAutoPlay', valueText: '2 devices on · 5 s delay' },
+      { id: 'autoBrowseLimit', short: 'Android Auto browse limit', type: 'select', labelKey: 'LabelAndroidAutoBrowseLimitForGrouping', options: ['50', '100', '200'], default: '100' },
+      { id: 'autoSeriesOrder', short: 'Android Auto series order', type: 'select', labelKey: 'LabelAndroidAutoBrowseSeriesSequenceOrder', options: ['Ascending', 'Descending'], default: 'Ascending' },
+      { id: 'downloadCellular', short: 'Download on cellular', type: 'select', labelKey: 'LabelDownloadUsingCellular', options: ['Ask', 'Always', 'Never'], default: 'Ask' },
+      { id: 'streamCellular', short: 'Stream on cellular', type: 'select', labelKey: 'LabelStreamingUsingCellular', options: ['Ask', 'Always', 'Never'], default: 'Always' }
     ],
     summary: (v) => `Bluetooth · Android Auto · Cellular: ${v.downloadCellular.toLowerCase()} downloads`
   }
