@@ -30,7 +30,7 @@
           <input v-model.number="level" type="range" min="0" max="15" step="1" class="w-full" />
         </div>
         <div class="py-3">
-          <p class="mb-2">Notification and car progress (Settings → Playback &amp; audio)</p>
+          <p class="mb-2">Progress bar (Settings → Connections &amp; data → Android Auto)</p>
           <ui-toggle-btns v-model="progressMode" :items="[{ text: 'Chapter Track', value: 'chapter' }, { text: 'Total Track', value: 'book' }]" />
         </div>
         <div class="flex items-center py-3 cursor-pointer" @click="proposed = !proposed">
