@@ -33,6 +33,11 @@ export default {
     attemptingConnection() {
       return this.$store.state.attemptingConnection
     },
+    /** True when the server is reached through its internal URL (home network) instead of the external URL */
+    usingInternalUrl() {
+      const config = this.$store.state.user.serverConnectionConfig
+      return !!config?.localAddress && config.address === config.localAddress
+    },
     icon() {
       if (!this.user && !this.attemptingConnection) return null // hide when not connected to server
 
@@ -44,6 +49,8 @@ export default {
         return 'cloud_off'
       } else if (this.isCellular) {
         return 'signal_cellular_alt'
+      } else if (this.usingInternalUrl) {
+        return 'wifi'
       } else {
         return 'cloud_done'
       }
@@ -67,6 +74,8 @@ export default {
         msg = this.$strings.MessageSocketNotConnected
       } else if (this.isCellular) {
         msg = this.isNetworkUnmetered ? this.$strings.MessageSocketConnectedOverUnmeteredCellular : this.$strings.MessageSocketConnectedOverMeteredCellular
+      } else if (this.usingInternalUrl) {
+        msg = this.$strings.MessageSocketConnectedOverInternalUrl
       } else {
         msg = this.isNetworkUnmetered ? this.$strings.MessageSocketConnectedOverUnmeteredWifi : this.$strings.MessageSocketConnectedOverMeteredWifi
       }

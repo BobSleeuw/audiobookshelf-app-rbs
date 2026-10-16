@@ -628,6 +628,19 @@ export default {
       await this.$hapticsImpact()
       console.log('[ServerConnectForm] connectToServer', config.address)
       this.processing = true
+
+      // Pick the internal or external URL for the network we are on now (the saved address is the one used last time)
+      if (config.localAddress) {
+        try {
+          const activeAddress = await this.$localNetwork.resolveAddress(config)
+          if (activeAddress && activeAddress !== config.address) {
+            config = await this.$db.updateServerAddresses({ id: config.id, address: activeAddress })
+          }
+        } catch (error) {
+          console.error('[ServerConnectForm] Failed to resolve the server address', error)
+        }
+      }
+
       this.serverConfig = {
         ...config
       }
