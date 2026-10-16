@@ -25,6 +25,21 @@
     <input v-model.number="values[item.id]" type="range" :min="item.min" :max="item.max" step="1" class="w-full" />
   </div>
 
+  <div v-else-if="item.type === 'steps'" class="py-3">
+    <div class="flex items-center">
+      <p class="flex-grow">{{ label }}</p>
+      <p class="text-sm tabular-nums">{{ values[item.id] }}</p>
+    </div>
+    <input :value="stepIndex" type="range" min="0" :max="item.options.length - 1" step="1" class="w-full" @input="setStep($event.target.value)" />
+    <!-- one dot (and label) under the slider for every value; the dots line up with the positions of the handle -->
+    <div class="flex justify-between px-2 -mt-0.5 pointer-events-none">
+      <div v-for="(option, index) in item.options" :key="option" class="w-0 flex flex-col items-center">
+        <span class="w-1.5 h-1.5 rounded-full" :class="index === stepIndex ? 'bg-success' : 'bg-fg-muted'" />
+        <span class="text-[10px] mt-1 whitespace-nowrap" :class="index === stepIndex ? 'text-fg' : 'text-fg-muted'">{{ option }}</span>
+      </div>
+    </div>
+  </div>
+
   <div v-else-if="item.type === 'link'" class="py-3 flex items-center">
     <span class="material-symbols text-2xl text-fg-muted">{{ item.icon || 'chevron_right' }}</span>
     <p class="pl-4 flex-grow">{{ label }}</p>
@@ -39,11 +54,17 @@ export default {
     values: Object
   },
   computed: {
+    stepIndex() {
+      return Math.max(0, (this.item.options || []).indexOf(this.values[this.item.id]))
+    },
     label() {
       return this.item.label || this.$strings[this.item.labelKey] || this.item.labelKey
     }
   },
   methods: {
+    setStep(index) {
+      this.values[this.item.id] = this.item.options[Number(index)]
+    },
     toggle() {
       this.values[this.item.id] = !this.values[this.item.id]
     },

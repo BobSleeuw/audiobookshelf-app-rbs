@@ -4,10 +4,13 @@ import Vue from 'vue'
  * Settings mockups: every setting of the current Settings page grouped in four categories.
  * Labels use the app's real strings (labelKey). Values are local to the mockup and are not saved.
  *
- * item.type: toggle | select | slider | link | time
+ * item.type: toggle | select | slider | steps | link | time
  * item.showIf: id of a toggle that must be on for the item to show
  */
 const LANGUAGES = ['Български', 'Català', 'Čeština', 'Dansk', 'Deutsch', 'English', 'Español', 'Français', 'Hrvatski', 'Italiano', 'Magyar', 'Nederlands', 'Norsk', 'Polski', 'Português', 'Română', 'Русский', 'Slovenčina', 'Suomi', 'Svenska', 'Українська', '中文', '日本語', '한국어']
+
+// Seconds the app offers for jumping (5, 10, 15, 30, 60, 120, 300), labelled like the real Settings page
+const JUMP_OPTIONS = ['5s', '10s', '15s', '30s', '60s', '2m', '5m']
 
 export const GROUPS = [
   {
@@ -29,8 +32,8 @@ export const GROUPS = [
     shortTitle: 'Playback',
     icon: 'play_circle',
     items: [
-      { id: 'jumpBack', short: 'Jump back', type: 'select', labelKey: 'LabelJumpBackwardsTime', options: ['5s', '10s', '15s', '30s'], default: '10s' },
-      { id: 'jumpForward', short: 'Jump forward', type: 'select', labelKey: 'LabelJumpForwardsTime', options: ['10s', '30s', '60s'], default: '30s' },
+      { id: 'jumpBack', short: 'Jump back', type: 'steps', labelKey: 'LabelJumpBackwardsTime', options: JUMP_OPTIONS, default: '10s' },
+      { id: 'jumpForward', short: 'Jump forward', type: 'steps', labelKey: 'LabelJumpForwardsTime', options: JUMP_OPTIONS, default: '30s' },
       { id: 'disableAutoRewind', short: 'Auto rewind', type: 'toggle', labelKey: 'LabelDisableAutoRewind', default: false },
       { id: 'mp3Seeking', short: '.mp3 seeking', type: 'toggle', label: 'Enable .mp3 index seeking', default: false },
       { id: 'mediaSeeking', short: 'Media control seeking', type: 'toggle', labelKey: 'LabelAllowSeekingOnMediaControls', default: false },
