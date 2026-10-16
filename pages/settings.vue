@@ -1,206 +1,71 @@
 <template>
-  <div class="w-full h-full px-4 py-8 overflow-y-auto">
-    <!-- Display settings -->
-    <p class="uppercase text-xs font-semibold text-fg-muted mb-2">{{ $strings.HeaderUserInterfaceSettings }}</p>
-    <div class="flex items-center py-3">
-      <div class="w-10 flex justify-center" @click="toggleEnableAltView">
-        <ui-toggle-switch v-model="enableBookshelfView" @input="saveSettings" />
-      </div>
-      <p class="pl-4">{{ $strings.LabelUseBookshelfView }}</p>
-    </div>
-    <!-- screen.orientation.lock not supported on iOS webview -->
-    <div v-if="!isiOS" class="flex items-center py-3">
-      <div class="w-10 flex justify-center" @click.stop="toggleLockOrientation">
-        <ui-toggle-switch v-model="lockCurrentOrientation" class="pointer-events-none" />
-      </div>
-      <p class="pl-4">{{ $strings.LabelLockOrientation }}</p>
-    </div>
-    <div class="py-3 flex items-center">
-      <p class="pr-4 w-36">{{ $strings.LabelHapticFeedback }}</p>
-      <div @click.stop="showHapticFeedbackOptions">
-        <ui-text-input :value="hapticFeedbackOption" readonly append-icon="expand_more" style="max-width: 200px" />
-      </div>
-    </div>
-    <div class="py-3 flex items-center">
-      <p class="pr-4 w-36">{{ $strings.LabelLanguage }}</p>
-      <div @click.stop="showLanguageOptions">
-        <ui-text-input :value="languageOption" readonly append-icon="expand_more" style="max-width: 200px" />
-      </div>
-    </div>
-    <div class="py-3 flex items-center">
-      <p class="pr-4 w-36">{{ $strings.LabelTheme }}</p>
-      <div @click.stop="showThemeOptions">
-        <ui-text-input :value="themeOption" readonly append-icon="expand_more" style="max-width: 200px" />
-      </div>
-    </div>
+  <div class="relative w-full h-full flex flex-col overflow-hidden">
+    <!-- header bar of a category page (title and back arrow) -->
+    <settings-header v-if="currentGroup" :title="currentGroup.title" back @back="closeSection" />
 
-    <!-- Playback settings -->
-    <p class="uppercase text-xs font-semibold text-fg-muted mb-2 mt-10">{{ $strings.HeaderPlaybackSettings }}</p>
-    <div class="py-3 flex items-center">
-      <p class="pr-4 w-36">{{ $strings.LabelJumpBackwardsTime }}</p>
-      <div @click.stop="showJumpBackwardsOptions">
-        <ui-text-input :value="jumpBackwardsOption" readonly append-icon="expand_more" style="width: 145px; max-width: 145px" />
-      </div>
-    </div>
-    <div class="py-3 flex items-center">
-      <p class="pr-4 w-36">{{ $strings.LabelJumpForwardsTime }}</p>
-      <div @click.stop="showJumpForwardOptions">
-        <ui-text-input :value="jumpForwardOption" readonly append-icon="expand_more" style="width: 145px; max-width: 145px" />
-      </div>
-    </div>
-    <div class="flex items-center py-3">
-      <div class="w-10 flex justify-center" @click="toggleDisableAutoRewind">
-        <ui-toggle-switch v-model="settings.disableAutoRewind" @input="saveSettings" />
-      </div>
-      <p class="pl-4">{{ $strings.LabelDisableAutoRewind }}</p>
-    </div>
-    <div v-if="!isiOS" class="flex items-center py-3">
-      <div class="w-10 flex justify-center" @click="toggleEnableMp3IndexSeeking">
-        <ui-toggle-switch v-model="settings.enableMp3IndexSeeking" @input="saveSettings" />
-      </div>
-      <p class="pl-4">{{ $strings.LabelEnableMp3IndexSeeking }}</p>
-      <span class="material-symbols text-xl ml-2" @click.stop="showConfirmMp3IndexSeeking">info</span>
-    </div>
-    <div class="flex items-center py-3">
-      <div class="w-10 flex justify-center" @click="toggleAllowSeekingOnMediaControls">
-        <ui-toggle-switch v-model="settings.allowSeekingOnMediaControls" @input="saveSettings" />
-      </div>
-      <p class="pl-4">{{ $strings.LabelAllowSeekingOnMediaControls }}</p>
-    </div>
+    <div class="flex-grow overflow-y-auto px-4" :class="currentGroup ? 'py-3' : 'py-6'">
+      <!-- category list -->
+      <template v-if="!currentGroup">
+        <p class="uppercase text-xs font-semibold text-fg-muted mb-2">{{ $strings.HeaderSettings }}</p>
+        <ui-text-input v-model="query" prepend-icon="search" clearable :autofocus="false" :placeholder="$strings.LabelSearchSettings" class="settings-search mb-5" />
 
-    <!-- Sleep timer settings -->
-    <template v-if="!isiOS">
-      <p class="uppercase text-xs font-semibold text-fg-muted mb-2 mt-10">{{ $strings.HeaderSleepTimerSettings }}</p>
-      <div class="flex items-center py-3">
-        <div class="w-10 flex justify-center" @click="toggleDisableShakeToResetSleepTimer">
-          <ui-toggle-switch v-model="settings.disableShakeToResetSleepTimer" @input="saveSettings" />
-        </div>
-        <p class="pl-4">{{ $strings.LabelDisableShakeToReset }}</p>
-        <span class="material-symbols text-xl ml-2" @click.stop="showInfo('disableShakeToResetSleepTimer')">info</span>
-      </div>
-      <div v-if="!settings.disableShakeToResetSleepTimer" class="py-3 flex items-center">
-        <p class="pr-4 w-36">{{ $strings.LabelShakeSensitivity }}</p>
-        <div @click.stop="showShakeSensitivityOptions">
-          <ui-text-input :value="shakeSensitivityOption" readonly append-icon="expand_more" style="width: 145px; max-width: 145px" />
-        </div>
-      </div>
-    </template>
-    <div class="flex items-center py-3">
-      <div class="w-10 flex justify-center" @click="toggleDisableSleepTimerFadeOut">
-        <ui-toggle-switch v-model="settings.disableSleepTimerFadeOut" @input="saveSettings" />
-      </div>
-      <p class="pl-4">{{ $strings.LabelDisableAudioFadeOut }}</p>
-      <span class="material-symbols text-xl ml-2" @click.stop="showInfo('disableSleepTimerFadeOut')">info</span>
-    </div>
-    <template v-if="!isiOS">
-      <div class="flex items-center py-3">
-        <div class="w-10 flex justify-center" @click="toggleDisableSleepTimerResetFeedback">
-          <ui-toggle-switch v-model="settings.disableSleepTimerResetFeedback" @input="saveSettings" />
-        </div>
-        <p class="pl-4">{{ $strings.LabelDisableVibrateOnReset }}</p>
-        <span class="material-symbols text-xl ml-2" @click.stop="showInfo('disableSleepTimerResetFeedback')">info</span>
-      </div>
-      <div class="flex items-center py-3">
-        <div class="w-10 flex justify-center" @click="toggleSleepTimerAlmostDoneChime">
-          <ui-toggle-switch v-model="settings.enableSleepTimerAlmostDoneChime" @input="saveSettings" />
-        </div>
-        <p class="pl-4">{{ $strings.LabelSleepTimerAlmostDoneChime }}</p>
-        <span class="material-symbols text-xl ml-2" @click.stop="showInfo('enableSleepTimerAlmostDoneChime')">info</span>
-      </div>
-      <div class="flex items-center py-3">
-        <div class="w-10 flex justify-center" @click="toggleAutoSleepTimer">
-          <ui-toggle-switch v-model="settings.autoSleepTimer" @input="saveSettings" />
-        </div>
-        <p class="pl-4">{{ $strings.LabelAutoSleepTimer }}</p>
-        <span class="material-symbols text-xl ml-2" @click.stop="showInfo('autoSleepTimer')">info</span>
-      </div>
-    </template>
-    <!-- Auto Sleep timer settings -->
-    <div v-if="settings.autoSleepTimer" class="py-3 flex items-center">
-      <p class="pr-4 w-36">{{ $strings.LabelStartTime }}</p>
-      <ui-text-input type="time" v-model="settings.autoSleepTimerStartTime" style="width: 145px; max-width: 145px" @input="autoSleepTimerTimeUpdated" />
-    </div>
-    <div v-if="settings.autoSleepTimer" class="py-3 flex items-center">
-      <p class="pr-4 w-36">{{ $strings.LabelEndTime }}</p>
-      <ui-text-input type="time" v-model="settings.autoSleepTimerEndTime" style="width: 145px; max-width: 145px" @input="autoSleepTimerTimeUpdated" />
-    </div>
-    <div v-if="settings.autoSleepTimer" class="py-3 flex items-center">
-      <p class="pr-4 w-36">{{ $strings.LabelSleepTimer }}</p>
-      <div @click.stop="showSleepTimerOptions">
-        <ui-text-input :value="sleepTimerLengthOption" readonly append-icon="expand_more" style="width: 145px; max-width: 145px" />
-      </div>
-    </div>
-    <div v-if="settings.autoSleepTimer" class="flex items-center py-3">
-      <div class="w-10 flex justify-center" @click="toggleAutoSleepTimerAutoRewind">
-        <ui-toggle-switch v-model="settings.autoSleepTimerAutoRewind" @input="saveSettings" />
-      </div>
-      <p class="pl-4">{{ $strings.LabelAutoSleepTimerAutoRewind }}</p>
-      <span class="material-symbols text-xl ml-2" @click.stop="showInfo('autoSleepTimerAutoRewind')">info</span>
-    </div>
-    <div v-if="settings.autoSleepTimerAutoRewind" class="py-3 flex items-center">
-      <p class="pr-4 w-36">{{ $strings.LabelAutoRewindTime }}</p>
-      <div @click.stop="showAutoSleepTimerRewindOptions">
-        <ui-text-input :value="autoSleepTimerRewindLengthOption" readonly append-icon="expand_more" style="width: 145px; max-width: 145px" />
-      </div>
-    </div>
+        <!-- search results -->
+        <template v-if="query.trim()">
+          <p v-if="!results.length" class="py-6 text-center text-fg-muted">{{ $strings.MessageNoSettingsFound }}</p>
+          <div v-for="result in results" :key="result.item.id" class="flex items-center py-3 cursor-pointer" @click="openResult(result)">
+            <span class="material-symbols text-2xl text-fg-muted w-10">{{ result.group.icon }}</span>
+            <div class="flex-grow min-w-0">
+              <p class="truncate">{{ result.item.label }}</p>
+              <p class="text-xs text-fg-muted truncate">{{ result.group.title }}</p>
+            </div>
+            <span class="material-symbols text-fg-muted">chevron_right</span>
+          </div>
+        </template>
 
-    <!-- Data settings -->
-    <p class="uppercase text-xs font-semibold text-fg-muted mb-2 mt-10">{{ $strings.HeaderDataSettings }}</p>
-    <div class="py-3 flex items-center">
-      <p class="pr-4 w-36">{{ $strings.LabelDownloadUsingCellular }}</p>
-      <div @click.stop="showDownloadUsingCellularOptions">
-        <ui-text-input :value="downloadUsingCellularOption" readonly append-icon="expand_more" style="max-width: 200px" />
+        <!-- categories -->
+        <template v-else>
+          <div v-for="group in groups" :key="group.id" class="flex items-center bg-primary rounded-lg px-4 py-5 mb-3 cursor-pointer" @click="openSection(group)">
+            <span class="material-symbols text-3xl text-fg-muted w-12 flex-shrink-0">{{ group.icon }}</span>
+            <div class="flex-grow min-w-0 pr-2">
+              <p class="text-lg">{{ group.title }}</p>
+              <p class="text-sm text-fg-muted mt-1 truncate">{{ group.description }}</p>
+            </div>
+            <span class="material-symbols text-2xl text-fg-muted">chevron_right</span>
+          </div>
+        </template>
+      </template>
+
+      <!-- one category -->
+      <div v-else ref="section">
+        <template v-for="(item, index) in visibleItems">
+          <div v-if="(item.dividerBefore || item.headingBefore) && index > 0" :key="item.id + '-divider'" class="w-full h-px bg-fg/10 my-2" />
+          <p v-if="item.headingBefore" :key="item.id + '-heading'" class="uppercase text-xs font-semibold text-fg-muted pb-1" :class="index > 0 ? 'pt-2' : 'pt-1'">{{ item.headingBefore }}</p>
+          <div :key="item.id" :data-item="item.id" class="rounded transition-colors duration-700" :class="highlightId === item.id ? 'bg-success bg-opacity-20' : ''">
+            <settings-row :item="item" :values="values" @set="setValue" @commit="commitValue" @pick="openPicker" @action="runAction" />
+          </div>
+        </template>
       </div>
     </div>
-    <div class="py-3 flex items-center">
-      <p class="pr-4 w-36">{{ $strings.LabelStreamingUsingCellular }}</p>
-      <div @click.stop="showStreamingUsingCellularOptions">
-        <ui-text-input :value="streamingUsingCellularOption" readonly append-icon="expand_more" style="max-width: 200px" />
-      </div>
-    </div>
-
-    <!-- Volume boost -->
-    <settings-volume-boost-settings v-if="!isiOS" />
-
-    <!-- Bluetooth auto play -->
-    <template v-if="!isiOS">
-      <p class="uppercase text-xs font-semibold text-fg-muted mb-2 mt-10">{{ $strings.HeaderBluetoothAutoPlay }}</p>
-      <nuxt-link to="/bluetooth" class="py-3 flex items-center">
-        <span class="material-symbols text-2xl text-fg-muted">bluetooth</span>
-        <p class="pl-4 flex-grow">{{ $strings.MessageBluetoothAutoPlayDescription }}</p>
-        <span class="material-symbols text-fg-muted">chevron_right</span>
-      </nuxt-link>
-    </template>
-
-    <!-- Android Auto settings -->
-    <template v-if="!isiOS">
-      <p class="uppercase text-xs font-semibold text-fg-muted mb-2 mt-10">{{ $strings.HeaderAndroidAutoSettings }}</p>
-      <div class="py-3 flex items-center">
-        <p class="pr-4 w-36">{{ $strings.LabelAndroidAutoBrowseLimitForGrouping }}</p>
-        <ui-text-input type="number" v-model="settings.androidAutoBrowseLimitForGrouping" style="width: 145px; max-width: 145px" @input="androidAutoBrowseLimitForGroupingUpdated" />
-        <span class="material-symbols text-xl ml-2" @click.stop="showInfo('androidAutoBrowseLimitForGrouping')">info</span>
-      </div>
-      <div class="py-3 flex items-center">
-        <p class="pr-4 w-36">{{ $strings.LabelAndroidAutoBrowseSeriesSequenceOrder }}</p>
-        <div @click.stop="showAndroidAutoBrowseSeriesSequenceOrderOptions">
-          <ui-text-input :value="androidAutoBrowseSeriesSequenceOrderOption" readonly append-icon="expand_more" style="max-width: 200px" />
-        </div>
-      </div>
-    </template>
 
     <div v-show="loading" class="w-full h-full absolute top-0 left-0 flex items-center justify-center z-10">
       <ui-loading-indicator />
     </div>
 
+    <!-- choice pop-ups: the app's own dialog, and a theme picker with previews -->
     <modals-dialog v-model="showMoreMenuDialog" :items="moreMenuItems" :selected="moreMenuSelected" @action="clickMenuAction" />
-    <modals-sleep-timer-length-modal v-model="showSleepTimerLengthModal" @change="sleepTimerLengthModalSelection" />
-    <modals-auto-sleep-timer-rewind-length-modal v-model="showAutoSleepTimerRewindLengthModal" @change="showAutoSleepTimerRewindLengthModalSelection" />
+    <settings-theme-picker v-model="showThemePicker" :selected="theme" @action="chooseTheme" />
   </div>
 </template>
 
 <script>
-import { Dialog } from '@capacitor/dialog'
+import { AbsRbsSettings } from '@/plugins/capacitor/AbsRbsSettings'
+import { AbsBluetooth } from '@/plugins/capacitor/AbsBluetooth'
 import jumpLabelMixin from '@/mixins/jumpLabel'
+
+const SLEEP_TIMER_MINUTES = [5, 10, 15, 30, 45, 60, 90]
+const BROWSE_LIMITS = [25, 50, 100, 200, 500]
+const DEFAULT_BOOST_DB = 6
+const DEFAULT_ANDROID_AUTO_BOOST_DB = 9
 
 export default {
   mixins: [jumpLabelMixin],
@@ -208,10 +73,11 @@ export default {
     return {
       loading: false,
       deviceData: null,
+      query: '',
+      highlightId: null,
       showMoreMenuDialog: false,
-      showSleepTimerLengthModal: false,
-      showAutoSleepTimerRewindLengthModal: false,
-      moreMenuSetting: '',
+      showThemePicker: false,
+      pickerItem: null,
       settings: {
         disableAutoRewind: false,
         enableAltView: true,
@@ -238,123 +104,26 @@ export default {
         androidAutoBrowseLimitForGrouping: 100,
         androidAutoBrowseSeriesSequenceOrder: 'ASC'
       },
-      theme: 'dark',
-      lockCurrentOrientation: false,
-      settingInfo: {
-        disableShakeToResetSleepTimer: {
-          name: this.$strings.LabelDisableShakeToReset,
-          message: this.$strings.LabelDisableShakeToResetHelp
-        },
-        autoSleepTimer: {
-          name: this.$strings.LabelAutoSleepTimer,
-          message: this.$strings.LabelAutoSleepTimerHelp
-        },
-        disableSleepTimerFadeOut: {
-          name: this.$strings.LabelDisableAudioFadeOut,
-          message: this.$strings.LabelDisableAudioFadeOutHelp
-        },
-        disableSleepTimerResetFeedback: {
-          name: this.$strings.LabelDisableVibrateOnReset,
-          message: this.$strings.LabelDisableVibrateOnResetHelp
-        },
-        enableSleepTimerAlmostDoneChime: {
-          name: this.$strings.LabelSleepTimerAlmostDoneChime,
-          message: this.$strings.LabelSleepTimerAlmostDoneChimeHelp
-        },
-        autoSleepTimerAutoRewind: {
-          name: this.$strings.LabelAutoSleepTimerAutoRewind,
-          message: this.$strings.LabelAutoSleepTimerAutoRewindHelp
-        },
-        enableMp3IndexSeeking: {
-          name: this.$strings.LabelEnableMp3IndexSeeking,
-          message: this.$strings.LabelEnableMp3IndexSeekingHelp
-        },
-        androidAutoBrowseLimitForGrouping: {
-          name: this.$strings.LabelAndroidAutoBrowseLimitForGrouping,
-          message: this.$strings.LabelAndroidAutoBrowseLimitForGroupingHelp
-        }
+      // ABS-RBS settings (stored natively)
+      rbs: {
+        bluetoothAutoPlayEnabled: true,
+        bluetoothDelaySeconds: 5,
+        maxBluetoothDelaySeconds: 30,
+        ignoringBatteryOptimizations: true,
+        volumeBoostEnabled: false,
+        volumeBoostDb: 0,
+        androidAutoVolumeBoostDb: 0,
+        maxBoostDb: 15
       },
-      hapticFeedbackItems: [
-        {
-          text: this.$strings.LabelOff,
-          value: 'OFF'
-        },
-        {
-          text: this.$strings.LabelLight,
-          value: 'LIGHT'
-        },
-        {
-          text: this.$strings.LabelMedium,
-          value: 'MEDIUM'
-        },
-        {
-          text: this.$strings.LabelHeavy,
-          value: 'HEAVY'
-        }
-      ],
-      shakeSensitivityItems: [
-        {
-          text: this.$strings.LabelVeryLow,
-          value: 'VERY_LOW'
-        },
-        {
-          text: this.$strings.LabelLow,
-          value: 'LOW'
-        },
-        {
-          text: this.$strings.LabelMedium,
-          value: 'MEDIUM'
-        },
-        {
-          text: this.$strings.LabelHigh,
-          value: 'HIGH'
-        },
-        {
-          text: this.$strings.LabelVeryHigh,
-          value: 'VERY_HIGH'
-        }
-      ],
-      downloadUsingCellularItems: [
-        {
-          text: this.$strings.LabelAskConfirmation,
-          value: 'ASK'
-        },
-        {
-          text: this.$strings.LabelAlways,
-          value: 'ALWAYS'
-        },
-        {
-          text: this.$strings.LabelNever,
-          value: 'NEVER'
-        }
-      ],
-      streamingUsingCellularItems: [
-        {
-          text: this.$strings.LabelAskConfirmation,
-          value: 'ASK'
-        },
-        {
-          text: this.$strings.LabelAlways,
-          value: 'ALWAYS'
-        },
-        {
-          text: this.$strings.LabelNever,
-          value: 'NEVER'
-        }
-      ],
-      androidAutoBrowseSeriesSequenceOrderItems: [
-        {
-          text: this.$strings.LabelSequenceAscending,
-          value: 'ASC'
-        },
-        {
-          text: this.$strings.LabelSequenceDescending,
-          value: 'DESC'
-        }
-      ]
+      bluetooth: { loading: false, loaded: false, granted: false, devices: [] },
+      theme: 'dark',
+      lockCurrentOrientation: false
     }
   },
   computed: {
+    isiOS() {
+      return this.$platform === 'ios'
+    },
     // This is flipped because alt view was the default until v0.9.61-beta
     enableBookshelfView: {
       get() {
@@ -363,9 +132,6 @@ export default {
       set(val) {
         this.settings.enableAltView = !val
       }
-    },
-    isiOS() {
-      return this.$platform === 'ios'
     },
     jumpForwardSecondsOptions() {
       return this.$store.state.globals.jumpForwardSecondsOptions || []
@@ -376,252 +142,473 @@ export default {
     languageOptionItems() {
       return this.$languageCodeOptions || []
     },
-    jumpForwardOption() {
-      return this.getJumpLabel(this.settings.jumpForwardTime)
-    },
-    jumpBackwardsOption() {
-      return this.getJumpLabel(this.settings.jumpBackwardsTime)
-    },
     themeOptionItems() {
       return [
-        {
-          text: this.$strings.LabelThemeBlack,
-          value: 'black'
-        },
-        {
-          text: this.$strings.LabelThemeDark,
-          value: 'dark'
-        },
-        {
-          text: this.$strings.LabelThemeLight,
-          value: 'light'
-        }
+        { text: this.$strings.LabelThemeBlack, value: 'black' },
+        { text: this.$strings.LabelThemeDark, value: 'dark' },
+        { text: this.$strings.LabelThemeLight, value: 'light' }
       ]
     },
-    shakeSensitivityOption() {
-      const item = this.shakeSensitivityItems.find((i) => i.value === this.settings.shakeSensitivity)
-      return item?.text || 'Error'
+    hapticFeedbackItems() {
+      return [
+        { text: this.$strings.LabelOff, value: 'OFF' },
+        { text: this.$strings.LabelLight, value: 'LIGHT' },
+        { text: this.$strings.LabelMedium, value: 'MEDIUM' },
+        { text: this.$strings.LabelHeavy, value: 'HEAVY' }
+      ]
     },
-    hapticFeedbackOption() {
-      const item = this.hapticFeedbackItems.find((i) => i.value === this.settings.hapticFeedback)
-      return item?.text || 'Error'
+    shakeSensitivityItems() {
+      return [
+        { text: this.$strings.LabelVeryLow, value: 'VERY_LOW' },
+        { text: this.$strings.LabelLow, value: 'LOW' },
+        { text: this.$strings.LabelMedium, value: 'MEDIUM' },
+        { text: this.$strings.LabelHigh, value: 'HIGH' },
+        { text: this.$strings.LabelVeryHigh, value: 'VERY_HIGH' }
+      ]
     },
-    languageOption() {
-      return this.languageOptionItems.find((i) => i.value === this.settings.languageCode)?.text || ''
+    cellularItems() {
+      return [
+        { text: this.$strings.LabelAskConfirmation, value: 'ASK' },
+        { text: this.$strings.LabelAlways, value: 'ALWAYS' },
+        { text: this.$strings.LabelNever, value: 'NEVER' }
+      ]
     },
-    themeOption() {
-      return this.themeOptionItems.find((i) => i.value === this.theme)?.text || ''
+    seriesOrderItems() {
+      return [
+        { text: this.$strings.LabelAscending, value: 'ASC' },
+        { text: this.$strings.LabelDescending, value: 'DESC' }
+      ]
     },
-    sleepTimerLengthOption() {
-      if (!this.settings.sleepTimerLength) return this.$strings.LabelEndOfChapter
-      const minutes = Number(this.settings.sleepTimerLength) / 1000 / 60
-      return `${minutes} min`
+    browseLimitItems() {
+      const limits = BROWSE_LIMITS.includes(this.settings.androidAutoBrowseLimitForGrouping) || !this.settings.androidAutoBrowseLimitForGrouping ? BROWSE_LIMITS : [...BROWSE_LIMITS, this.settings.androidAutoBrowseLimitForGrouping].sort((a, b) => a - b)
+      return limits.map((n) => ({ text: `${n} ${this.$strings.LabelItems}`, value: n }))
     },
-    autoSleepTimerRewindLengthOption() {
-      const minutes = Number(this.settings.autoSleepTimerAutoRewindTime) / 1000 / 60
-      return `${minutes} min`
+    sleepTimerLengthItems() {
+      return SLEEP_TIMER_MINUTES.map((m) => ({ text: `${m} min`, tick: String(m), value: m * 60000 }))
     },
-    downloadUsingCellularOption() {
-      const item = this.downloadUsingCellularItems.find((i) => i.value === this.settings.downloadUsingCellular)
-      return item?.text || 'Error'
+
+    /** Current value of every setting, by id (what the rows show) */
+    values() {
+      const s = this.settings
+      const values = {
+        theme: this.theme,
+        language: s.languageCode,
+        lockOrientation: this.lockCurrentOrientation,
+        bookshelfView: this.enableBookshelfView,
+        haptics: s.hapticFeedback,
+
+        btAuto: this.rbs.bluetoothAutoPlayEnabled,
+        btDelay: this.rbs.bluetoothDelaySeconds,
+        autoBrowseLimit: s.androidAutoBrowseLimitForGrouping,
+        autoSeriesOrder: s.androidAutoBrowseSeriesSequenceOrder,
+        downloadCellular: s.downloadUsingCellular,
+        streamCellular: s.streamingUsingCellular,
+
+        jumpBack: s.jumpBackwardsTime,
+        jumpForward: s.jumpForwardTime,
+        disableAutoRewind: s.disableAutoRewind,
+        mp3Seeking: s.enableMp3IndexSeeking,
+        mediaSeeking: s.allowSeekingOnMediaControls,
+        boostEnabled: this.rbs.volumeBoostEnabled,
+        volumeBoost: this.rbs.volumeBoostDb,
+        autoBoost: this.rbs.androidAutoVolumeBoostDb,
+
+        shakeReset: !s.disableShakeToResetSleepTimer,
+        shakeSensitivity: s.shakeSensitivity,
+        disableFade: s.disableSleepTimerFadeOut,
+        disableVibrate: s.disableSleepTimerResetFeedback,
+        chime: s.enableSleepTimerAlmostDoneChime,
+        autoTimer: s.autoSleepTimer,
+        autoLength: s.sleepTimerLength,
+        autoStart: s.autoSleepTimerStartTime,
+        autoEnd: s.autoSleepTimerEndTime,
+        autoRewind: s.autoSleepTimerAutoRewind,
+        autoRewindTime: s.autoSleepTimerAutoRewindTime
+      }
+      this.bluetooth.devices.forEach((d) => (values[d.id] = d.enabled))
+      return values
     },
-    streamingUsingCellularOption() {
-      const item = this.streamingUsingCellularItems.find((i) => i.value === this.settings.streamingUsingCellular)
-      return item?.text || 'Error'
+
+    /** All categories with their settings. showIf: ids of toggles that must be on; android: not shown on iOS */
+    groups() {
+      const s = this.$strings
+      const categories = [
+        {
+          id: 'appearance',
+          title: s.LabelSettingsAppearance,
+          description: s.MessageSettingsAppearanceDescription,
+          icon: 'palette',
+          items: [
+            { id: 'theme', type: 'select', label: s.LabelTheme, options: this.themeOptionItems },
+            { id: 'language', type: 'select', label: s.LabelLanguage, options: this.languageOptionItems },
+            { id: 'lockOrientation', type: 'toggle', label: s.LabelLockOrientation, android: true },
+            { id: 'bookshelfView', type: 'toggle', label: s.LabelUseBookshelfView },
+            { id: 'haptics', type: 'select', label: s.LabelHapticFeedback, options: this.hapticFeedbackItems }
+          ]
+        },
+        {
+          id: 'connections',
+          title: s.LabelSettingsConnections,
+          description: s.MessageSettingsConnectionsDescription,
+          icon: 'sync_alt',
+          items: [
+            { id: 'btAuto', type: 'toggle', label: s.LabelBluetoothAutoPlay, headingBefore: s.LabelBluetooth, android: true },
+            { id: 'btDelay', type: 'slider', plain: true, label: s.LabelDelayBeforePlaying, min: 0, max: this.rbs.maxBluetoothDelaySeconds, unit: ' s', showIf: ['btAuto'], android: true },
+            { id: 'btBackground', type: 'action', label: s.LabelStartWhenAppClosed, buttonText: s.ButtonAllow, done: this.rbs.ignoringBatteryOptimizations, showIf: ['btAuto'], android: true },
+            { id: 'btDevices', type: 'devices', label: s.LabelAutoPlayDevices, loading: this.bluetooth.loading, granted: this.bluetooth.granted, devices: this.bluetooth.devices, showIf: ['btAuto'], android: true },
+            { id: 'autoBrowseLimit', type: 'select', label: s.LabelGroupByLetterAbove, help: s.MessageAndroidAutoBrowseGroupHelp, headingBefore: s.LabelAndroidAuto, options: this.browseLimitItems, android: true },
+            { id: 'autoSeriesOrder', type: 'select', label: s.LabelSeriesBookOrder, options: this.seriesOrderItems, android: true },
+            { id: 'downloadCellular', type: 'select', label: s.LabelDownloadUsingCellular, headingBefore: s.LabelMobileData, options: this.cellularItems },
+            { id: 'streamCellular', type: 'select', label: s.LabelStreamingUsingCellular, options: this.cellularItems }
+          ]
+        },
+        {
+          id: 'playback',
+          title: s.LabelSettingsPlayback,
+          description: s.MessageSettingsPlaybackDescription,
+          icon: 'play_circle',
+          items: [
+            { id: 'jumpBack', type: 'steps', label: s.LabelJumpBackwardsTime, options: this.jumpItems(this.jumpBackwardsSecondsOptions) },
+            { id: 'jumpForward', type: 'steps', label: s.LabelJumpForwardsTime, options: this.jumpItems(this.jumpForwardSecondsOptions) },
+            { id: 'disableAutoRewind', type: 'toggle', label: s.LabelDisableAutoRewind, dividerBefore: true },
+            { id: 'mp3Seeking', type: 'toggle', label: s.LabelEnableMp3IndexSeeking, android: true },
+            { id: 'mediaSeeking', type: 'toggle', label: s.LabelAllowSeekingOnMediaControls },
+            { id: 'boostEnabled', type: 'toggle', label: s.LabelVolumeBoost, dividerBefore: true, android: true },
+            { id: 'volumeBoost', type: 'slider', label: s.LabelBoostLevel, min: 0, max: this.rbs.maxBoostDb, unit: ' dB', showIf: ['boostEnabled'], android: true },
+            { id: 'autoBoost', type: 'slider', label: s.LabelBoostLevelAndroidAuto, min: 0, max: this.rbs.maxBoostDb, unit: ' dB', showIf: ['boostEnabled'], android: true }
+          ]
+        },
+        {
+          id: 'sleep',
+          title: s.LabelSettingsSleepTimer,
+          description: s.MessageSettingsSleepTimerDescription,
+          icon: 'bedtime',
+          items: [
+            { id: 'shakeReset', type: 'toggle', label: s.LabelShakeToReset, help: s.MessageShakeToResetHelp, android: true },
+            { id: 'shakeSensitivity', type: 'select', label: s.LabelShakeSensitivity, options: this.shakeSensitivityItems, showIf: ['shakeReset'], android: true },
+            { id: 'disableFade', type: 'toggle', label: s.LabelDisableAudioFadeOut, help: s.MessageAudioFadeOutHelp, dividerBefore: true },
+            { id: 'disableVibrate', type: 'toggle', label: s.LabelDisableVibrateOnReset, help: s.MessageVibrateOnResetHelp, android: true },
+            { id: 'chime', type: 'toggle', label: s.LabelSleepTimerAlmostDoneChime, help: s.MessageAlmostDoneChimeHelp, android: true },
+            { id: 'autoTimer', type: 'toggle', label: s.LabelAutoSleepTimer, help: s.MessageAutoSleepTimerHelp, dividerBefore: true, android: true },
+            { id: 'autoLength', type: 'steps', label: s.LabelSleepTimerLength, options: this.sleepTimerLengthItems, special: { text: s.LabelEndOfChapter, value: 0 }, defaultValue: 900000, showIf: ['autoTimer'], android: true },
+            { id: 'autoWindow', type: 'timerange', label: s.LabelActiveBetween, startId: 'autoStart', endId: 'autoEnd', showIf: ['autoTimer'], android: true },
+            { id: 'autoRewind', type: 'toggle', label: s.LabelAutoSleepTimerAutoRewind, help: s.MessageAutoRewindHelp, showIf: ['autoTimer'], android: true },
+            { id: 'autoRewindTime', type: 'steps', label: s.LabelAutoRewindTime, options: this.sleepTimerLengthItems, showIf: ['autoTimer', 'autoRewind'], android: true }
+          ]
+        }
+      ]
+      // Drop what does not exist on iOS; every setting remembers the heading it sits under (for search)
+      return categories
+        .map((group) => {
+          let tag = ''
+          const items = group.items
+            .filter((item) => !(this.isiOS && item.android))
+            .map((item) => {
+              if (item.headingBefore) tag = item.headingBefore
+              return { ...item, tag }
+            })
+          return { ...group, items }
+        })
+        .filter((group) => group.items.length)
     },
-    androidAutoBrowseSeriesSequenceOrderOption() {
-      const item = this.androidAutoBrowseSeriesSequenceOrderItems.find((i) => i.value === this.settings.androidAutoBrowseSeriesSequenceOrder)
-      return item?.text || 'Error'
+    currentGroup() {
+      const id = this.$route.query.section
+      return id ? this.groups.find((g) => g.id === id) || null : null
+    },
+    visibleItems() {
+      return this.currentGroup ? this.currentGroup.items.filter((item) => this.isVisible(item)) : []
+    },
+    results() {
+      const q = this.query.trim().toLowerCase()
+      const found = []
+      this.groups.forEach((group) => {
+        group.items.forEach((item) => {
+          if (`${item.label} ${item.tag} ${group.title}`.toLowerCase().includes(q)) found.push({ group, item })
+        })
+      })
+      return found
     },
     moreMenuItems() {
-      if (this.moreMenuSetting === 'shakeSensitivity') return this.shakeSensitivityItems
-      else if (this.moreMenuSetting === 'hapticFeedback') return this.hapticFeedbackItems
-      else if (this.moreMenuSetting === 'language') return this.languageOptionItems
-      else if (this.moreMenuSetting === 'theme') return this.themeOptionItems
-      else if (this.moreMenuSetting === 'downloadUsingCellular') return this.downloadUsingCellularItems
-      else if (this.moreMenuSetting === 'streamingUsingCellular') return this.streamingUsingCellularItems
-      else if (this.moreMenuSetting === 'androidAutoBrowseSeriesSequenceOrder') return this.androidAutoBrowseSeriesSequenceOrderItems
-      else if (this.moreMenuSetting === 'jumpForward')
-        return this.jumpForwardSecondsOptions.map((value) => ({
-          text: this.getJumpLabel(value),
-          value: value
-        }))
-      else if (this.moreMenuSetting === 'jumpBackwards')
-        return this.jumpBackwardsSecondsOptions.map((value) => ({
-          text: this.getJumpLabel(value),
-          value: value
-        }))
-      return []
+      return this.pickerItem ? this.pickerItem.options : []
     },
     moreMenuSelected() {
-      if (this.moreMenuSetting === 'jumpForward') return this.settings.jumpForwardTime
-      if (this.moreMenuSetting === 'jumpBackwards') return this.settings.jumpBackwardsTime
-      if (this.moreMenuSetting === 'language') return this.settings.languageCode
-      if (this.moreMenuSetting === 'theme') return this.theme
-      if (this.moreMenuSetting === 'downloadUsingCellular') return this.settings.downloadUsingCellular
-      if (this.moreMenuSetting === 'streamingUsingCellular') return this.settings.streamingUsingCellular
-      if (this.moreMenuSetting === 'androidAutoBrowseSeriesSequenceOrder') return this.settings.androidAutoBrowseSeriesSequenceOrder
-      if (this.moreMenuSetting === 'shakeSensitivity') return this.settings.shakeSensitivity
-      if (this.moreMenuSetting === 'hapticFeedback') return this.settings.hapticFeedback
-      return null
+      return this.pickerItem ? this.values[this.pickerItem.id] : null
+    }
+  },
+  watch: {
+    // Paired devices are only read once the Connections page is opened
+    currentGroup(group) {
+      if (group && group.id === 'connections' && !this.isiOS && !this.bluetooth.loaded) this.initBluetooth()
     }
   },
   methods: {
-    sleepTimerLengthModalSelection(value) {
-      this.settings.sleepTimerLength = value
-      this.saveSettings()
+    jumpItems(seconds) {
+      return seconds.map((value) => ({ text: this.getJumpLabel(value), value }))
     },
-    showAutoSleepTimerRewindLengthModalSelection(value) {
-      this.settings.autoSleepTimerAutoRewindTime = value
-      this.saveSettings()
+    isVisible(item) {
+      return (item.showIf || []).every((id) => this.values[id])
     },
-    showSleepTimerOptions() {
-      this.showSleepTimerLengthModal = true
+
+    // --- navigation (the open category is in the URL, so the back button closes it) ---
+    openSection(group, focusId = null) {
+      this.query = ''
+      this.highlightId = null
+      this.$router.push({ query: { section: group.id } })
+      this.$nextTick(() => {
+        if (!focusId) return
+        const el = this.$refs.section && this.$refs.section.querySelector(`[data-item="${focusId}"]`)
+        if (el) el.scrollIntoView({ block: 'center' })
+        this.highlightId = focusId
+        setTimeout(() => (this.highlightId = null), 1800)
+      })
     },
-    showAutoSleepTimerRewindOptions() {
-      this.showAutoSleepTimerRewindLengthModal = true
+    closeSection() {
+      this.$router.back()
     },
-    showHapticFeedbackOptions() {
-      this.moreMenuSetting = 'hapticFeedback'
-      this.showMoreMenuDialog = true
+    /** Open the category of a search result and jump to the setting (a setting that only shows under another one jumps to that one) */
+    openResult({ group, item }) {
+      const off = (item.showIf || []).find((id) => !this.values[id])
+      this.openSection(group, off || item.id)
     },
-    showShakeSensitivityOptions() {
-      this.moreMenuSetting = 'shakeSensitivity'
-      this.showMoreMenuDialog = true
-    },
-    showLanguageOptions() {
-      this.moreMenuSetting = 'language'
-      this.showMoreMenuDialog = true
-    },
-    showThemeOptions() {
-      this.moreMenuSetting = 'theme'
-      this.showMoreMenuDialog = true
-    },
-    showJumpForwardOptions() {
-      this.moreMenuSetting = 'jumpForward'
-      this.showMoreMenuDialog = true
-    },
-    showJumpBackwardsOptions() {
-      this.moreMenuSetting = 'jumpBackwards'
-      this.showMoreMenuDialog = true
-    },
-    showDownloadUsingCellularOptions() {
-      this.moreMenuSetting = 'downloadUsingCellular'
-      this.showMoreMenuDialog = true
-    },
-    showStreamingUsingCellularOptions() {
-      this.moreMenuSetting = 'streamingUsingCellular'
-      this.showMoreMenuDialog = true
-    },
-    showAndroidAutoBrowseSeriesSequenceOrderOptions() {
-      this.moreMenuSetting = 'androidAutoBrowseSeriesSequenceOrder'
-      this.showMoreMenuDialog = true
-    },
-    clickMenuAction(action) {
-      this.showMoreMenuDialog = false
-      if (this.moreMenuSetting === 'shakeSensitivity') {
-        this.settings.shakeSensitivity = action
-        this.saveSettings()
-      } else if (this.moreMenuSetting === 'hapticFeedback') {
-        this.settings.hapticFeedback = action
-        this.hapticFeedbackUpdated(action)
-      } else if (this.moreMenuSetting === 'language') {
-        this.settings.languageCode = action
-        this.saveSettings()
-      } else if (this.moreMenuSetting === 'theme') {
-        this.theme = action
-        this.saveTheme(action)
-      } else if (this.moreMenuSetting === 'downloadUsingCellular') {
-        this.settings.downloadUsingCellular = action
-        this.saveSettings()
-      } else if (this.moreMenuSetting === 'streamingUsingCellular') {
-        this.settings.streamingUsingCellular = action
-        this.saveSettings()
-      } else if (this.moreMenuSetting === 'androidAutoBrowseSeriesSequenceOrder') {
-        this.settings.androidAutoBrowseSeriesSequenceOrder = action
-        this.saveSettings()
-      } else if (this.moreMenuSetting === 'jumpForward') {
-        this.settings.jumpForwardTime = action
-        this.saveSettings()
-      } else if (this.moreMenuSetting === 'jumpBackwards') {
-        this.settings.jumpBackwardsTime = action
-        this.saveSettings()
+
+    // --- choosing a value from a list ---
+    openPicker(item) {
+      this.pickerItem = item
+      if (item.id === 'theme') {
+        this.showThemePicker = true
+      } else {
+        this.showMoreMenuDialog = true
       }
     },
+    clickMenuAction(value) {
+      this.showMoreMenuDialog = false
+      if (this.pickerItem) this.setValue(this.pickerItem.id, value)
+    },
+    chooseTheme(theme) {
+      this.showThemePicker = false
+      this.setValue('theme', theme)
+    },
+
+    // --- changing settings ---
+    setValue(id, value) {
+      const s = this.settings
+      if (id.startsWith('bt:')) return this.toggleBluetoothDevice(id, value)
+      switch (id) {
+        case 'theme':
+          this.theme = value
+          return this.saveTheme(value)
+        case 'language':
+          s.languageCode = value
+          break
+        case 'lockOrientation':
+          return this.setLockOrientation(value)
+        case 'bookshelfView':
+          this.enableBookshelfView = value
+          break
+        case 'haptics':
+          s.hapticFeedback = value
+          return this.hapticFeedbackUpdated(value)
+
+        case 'btAuto':
+          this.rbs.bluetoothAutoPlayEnabled = value
+          return this.saveRbsSetting('bluetoothAutoPlayEnabled', value)
+        case 'btDelay':
+          this.rbs.bluetoothDelaySeconds = value // saved when the slider is released
+          return
+        case 'btAllDevices':
+          return this.setAllBluetoothDevices(value)
+        case 'autoBrowseLimit':
+          s.androidAutoBrowseLimitForGrouping = value
+          break
+        case 'autoSeriesOrder':
+          s.androidAutoBrowseSeriesSequenceOrder = value
+          break
+        case 'downloadCellular':
+          s.downloadUsingCellular = value
+          break
+        case 'streamCellular':
+          s.streamingUsingCellular = value
+          break
+
+        case 'jumpBack':
+          s.jumpBackwardsTime = value
+          break
+        case 'jumpForward':
+          s.jumpForwardTime = value
+          break
+        case 'disableAutoRewind':
+          s.disableAutoRewind = value
+          break
+        case 'mp3Seeking':
+          s.enableMp3IndexSeeking = value
+          break
+        case 'mediaSeeking':
+          s.allowSeekingOnMediaControls = value
+          break
+        case 'boostEnabled':
+          return this.setVolumeBoostEnabled(value)
+        case 'volumeBoost':
+          this.rbs.volumeBoostDb = value // saved when the slider is released
+          return
+        case 'autoBoost':
+          this.rbs.androidAutoVolumeBoostDb = value
+          return
+
+        case 'shakeReset':
+          s.disableShakeToResetSleepTimer = !value
+          break
+        case 'shakeSensitivity':
+          s.shakeSensitivity = value
+          break
+        case 'disableFade':
+          s.disableSleepTimerFadeOut = value
+          break
+        case 'disableVibrate':
+          s.disableSleepTimerResetFeedback = value
+          break
+        case 'chime':
+          s.enableSleepTimerAlmostDoneChime = value
+          break
+        case 'autoTimer':
+          s.autoSleepTimer = value
+          break
+        case 'autoLength':
+          s.sleepTimerLength = value
+          break
+        case 'autoStart':
+          s.autoSleepTimerStartTime = value
+          break
+        case 'autoEnd':
+          s.autoSleepTimerEndTime = value
+          break
+        case 'autoRewind':
+          s.autoSleepTimerAutoRewind = value
+          break
+        case 'autoRewindTime':
+          s.autoSleepTimerAutoRewindTime = value
+          break
+        default:
+          return
+      }
+      this.saveSettings()
+    },
+    /** A slider was released: save its value */
+    commitValue(id) {
+      if (id === 'btDelay') this.saveRbsSetting('bluetoothDelaySeconds', this.rbs.bluetoothDelaySeconds)
+      else if (id === 'volumeBoost') this.saveRbsSetting('volumeBoostDb', this.rbs.volumeBoostDb)
+      else if (id === 'autoBoost') this.saveRbsSetting('androidAutoVolumeBoostDb', this.rbs.androidAutoVolumeBoostDb)
+    },
+    runAction(action) {
+      if (action === 'btBackground') this.allowBackgroundStart()
+      else if (action === 'btGrant') this.requestBluetoothPermission()
+      else if (action === 'btRefresh') this.loadBluetoothDevices()
+    },
+
+    async setVolumeBoostEnabled(enabled) {
+      this.rbs.volumeBoostEnabled = enabled
+      // Switching it on with both levels at zero would do nothing, so start with a sensible level
+      if (enabled && !this.rbs.volumeBoostDb && !this.rbs.androidAutoVolumeBoostDb) {
+        this.rbs.volumeBoostDb = DEFAULT_BOOST_DB
+        this.rbs.androidAutoVolumeBoostDb = DEFAULT_ANDROID_AUTO_BOOST_DB
+        await this.saveRbsSetting('volumeBoostDb', DEFAULT_BOOST_DB)
+        await this.saveRbsSetting('androidAutoVolumeBoostDb', DEFAULT_ANDROID_AUTO_BOOST_DB)
+      }
+      await this.saveRbsSetting('volumeBoostEnabled', enabled)
+    },
+
+    async saveRbsSetting(key, value) {
+      try {
+        await AbsRbsSettings.setSetting({ key, value })
+      } catch (error) {
+        console.error('[settings] Failed to save', key, error)
+        this.$toast.error(this.$strings.ToastFailedToUpdate)
+      }
+    },
+    async loadRbsSettings() {
+      try {
+        const settings = await AbsRbsSettings.getSettings()
+        this.rbs = {
+          bluetoothAutoPlayEnabled: settings.bluetoothAutoPlayEnabled !== false,
+          bluetoothDelaySeconds: settings.bluetoothDelaySeconds,
+          maxBluetoothDelaySeconds: settings.maxBluetoothDelaySeconds || 30,
+          ignoringBatteryOptimizations: !!settings.ignoringBatteryOptimizations,
+          volumeBoostEnabled: !!settings.volumeBoostEnabled,
+          volumeBoostDb: settings.volumeBoostDb,
+          androidAutoVolumeBoostDb: settings.androidAutoVolumeBoostDb,
+          maxBoostDb: settings.maxBoostDb || 15
+        }
+      } catch (error) {
+        console.error('[settings] Failed to load RBS settings', error)
+      }
+    },
+
+    // --- Bluetooth auto play devices ---
+    async allowBackgroundStart() {
+      try {
+        await AbsRbsSettings.requestIgnoreBatteryOptimizations()
+      } catch (error) {
+        console.error('[settings] Failed to open battery settings', error)
+      }
+    },
+    async initBluetooth() {
+      this.bluetooth.loading = true
+      try {
+        const perm = await AbsBluetooth.hasBluetoothPermission()
+        this.bluetooth.granted = !!perm.granted
+        if (this.bluetooth.granted) await this.loadBluetoothDevices()
+      } finally {
+        this.bluetooth.loading = false
+        this.bluetooth.loaded = true
+      }
+    },
+    async requestBluetoothPermission() {
+      const res = await AbsBluetooth.requestBluetoothPermission()
+      this.bluetooth.granted = !!res.granted
+      if (this.bluetooth.granted) await this.loadBluetoothDevices()
+    },
+    async loadBluetoothDevices() {
+      this.bluetooth.loading = true
+      try {
+        const res = await AbsBluetooth.getDevices()
+        this.bluetooth.granted = !!res.granted
+        this.bluetooth.devices = (res.devices || []).map((d) => ({
+          id: `bt:${d.address}`,
+          address: d.address,
+          name: d.name,
+          enabled: !!d.enabled,
+          detail: d.lastConnected ? new Date(d.lastConnected).toLocaleString() : this.$strings.LabelNeverConnected
+        }))
+      } catch (error) {
+        console.error('[settings] Failed to load Bluetooth devices', error)
+        this.$toast.error(this.$strings.ToastFailedToLoad)
+      } finally {
+        this.bluetooth.loading = false
+      }
+    },
+    async toggleBluetoothDevice(id, enabled) {
+      const device = this.bluetooth.devices.find((d) => d.id === id)
+      if (!device) return
+      try {
+        await AbsBluetooth.setDeviceEnabled({ address: device.address, name: device.name, enabled })
+        device.enabled = enabled
+      } catch (error) {
+        console.error('[settings] Failed to update device', error)
+        this.$toast.error(this.$strings.ToastFailedToUpdate)
+      }
+    },
+    async setAllBluetoothDevices(enabled) {
+      for (const device of this.bluetooth.devices) {
+        if (device.enabled !== enabled) await this.toggleBluetoothDevice(device.id, enabled)
+      }
+    },
+
+    // --- original settings storage ---
     saveTheme(theme) {
       document.documentElement.dataset.theme = theme
       this.$localStore.setTheme(theme)
     },
-    autoSleepTimerTimeUpdated(val) {
-      if (!val) return // invalid times return falsy
-      this.saveSettings()
-    },
-    androidAutoBrowseLimitForGroupingUpdated(val) {
-      if (!val) return // invalid times return falsy
-      if (val > 1000) val = 1000
-      if (val < 30) val = 30
-      this.saveSettings()
-    },
     hapticFeedbackUpdated(val) {
       this.$store.commit('globals/setHapticFeedback', val)
-      this.saveSettings()
-    },
-    showInfo(setting) {
-      if (this.settingInfo[setting]) {
-        Dialog.alert({
-          title: this.settingInfo[setting].name,
-          message: this.settingInfo[setting].message
-        })
-      }
-    },
-    async showConfirmMp3IndexSeeking() {
-      const confirmResult = await Dialog.confirm({
-        title: this.settingInfo.enableMp3IndexSeeking.name,
-        message: this.settingInfo.enableMp3IndexSeeking.message,
-        cancelButtonTitle: 'View More'
-      })
-      if (!confirmResult.value) {
-        window.open('https://exoplayer.dev/troubleshooting.html#why-is-seeking-inaccurate-in-some-mp3-files', '_blank')
-      }
-    },
-    toggleEnableMp3IndexSeeking() {
-      this.settings.enableMp3IndexSeeking = !this.settings.enableMp3IndexSeeking
-      this.saveSettings()
-    },
-    toggleAutoSleepTimer() {
-      this.settings.autoSleepTimer = !this.settings.autoSleepTimer
-      this.saveSettings()
-    },
-    toggleAutoSleepTimerAutoRewind() {
-      this.settings.autoSleepTimerAutoRewind = !this.settings.autoSleepTimerAutoRewind
-      this.saveSettings()
-    },
-    toggleDisableSleepTimerFadeOut() {
-      this.settings.disableSleepTimerFadeOut = !this.settings.disableSleepTimerFadeOut
-      this.saveSettings()
-    },
-    toggleDisableShakeToResetSleepTimer() {
-      this.settings.disableShakeToResetSleepTimer = !this.settings.disableShakeToResetSleepTimer
-      this.saveSettings()
-    },
-    toggleDisableSleepTimerResetFeedback() {
-      this.settings.disableSleepTimerResetFeedback = !this.settings.disableSleepTimerResetFeedback
-      this.saveSettings()
-    },
-    toggleSleepTimerAlmostDoneChime() {
-      this.settings.enableSleepTimerAlmostDoneChime = !this.settings.enableSleepTimerAlmostDoneChime
-      this.saveSettings()
-    },
-    toggleDisableAutoRewind() {
-      this.settings.disableAutoRewind = !this.settings.disableAutoRewind
-      this.saveSettings()
-    },
-    toggleEnableAltView() {
-      this.settings.enableAltView = !this.settings.enableAltView
-      this.saveSettings()
-    },
-    toggleAllowSeekingOnMediaControls() {
-      this.settings.allowSeekingOnMediaControls = !this.settings.allowSeekingOnMediaControls
       this.saveSettings()
     },
     getCurrentOrientation() {
@@ -631,13 +618,9 @@ export default {
       if (type.includes('landscape')) return 'LANDSCAPE'
       return 'PORTRAIT' // default
     },
-    toggleLockOrientation() {
-      this.lockCurrentOrientation = !this.lockCurrentOrientation
-      if (this.lockCurrentOrientation) {
-        this.settings.lockOrientation = this.getCurrentOrientation()
-      } else {
-        this.settings.lockOrientation = 'NONE'
-      }
+    setLockOrientation(lock) {
+      this.lockCurrentOrientation = lock
+      this.settings.lockOrientation = lock ? this.getCurrentOrientation() : 'NONE'
       this.$setOrientationLock(this.settings.lockOrientation)
       this.saveSettings()
     },
@@ -682,7 +665,7 @@ export default {
       this.settings.downloadUsingCellular = deviceSettings.downloadUsingCellular || 'ALWAYS'
       this.settings.streamingUsingCellular = deviceSettings.streamingUsingCellular || 'ALWAYS'
 
-      this.settings.androidAutoBrowseLimitForGrouping = deviceSettings.androidAutoBrowseLimitForGrouping
+      this.settings.androidAutoBrowseLimitForGrouping = deviceSettings.androidAutoBrowseLimitForGrouping || 100
       this.settings.androidAutoBrowseSeriesSequenceOrder = deviceSettings.androidAutoBrowseSeriesSequenceOrder || 'ASC'
     },
     async init() {
@@ -691,11 +674,30 @@ export default {
       this.deviceData = await this.$db.getDeviceData()
       this.$store.commit('setDeviceData', this.deviceData)
       this.setDeviceSettings()
+      if (!this.isiOS) await this.loadRbsSettings()
       this.loading = false
+      if (this.currentGroup && this.currentGroup.id === 'connections' && !this.isiOS) this.initBluetooth()
     }
   },
   mounted() {
+    // Refresh when returning from the system battery settings dialog
+    this.onVisible = () => {
+      if (document.visibilityState === 'visible' && !this.isiOS) this.loadRbsSettings()
+    }
+    document.addEventListener('visibilitychange', this.onVisible)
     this.init()
+  },
+  beforeDestroy() {
+    document.removeEventListener('visibilitychange', this.onVisible)
   }
 }
 </script>
+
+<style>
+/* A smaller search box than the default input */
+.settings-search input {
+  padding-top: 0.3rem;
+  padding-bottom: 0.3rem;
+  font-size: 0.875rem;
+}
+</style>

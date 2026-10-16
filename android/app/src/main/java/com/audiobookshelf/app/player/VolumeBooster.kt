@@ -51,6 +51,7 @@ object VolumeBooster {
 
   /** Gain in dB currently requested for the active connection type. */
   fun currentBoostDb(ctx: Context): Int {
+    if (!RbsSettingsStore.volumeBoostEnabled(ctx)) return 0
     return if (carConnected) RbsSettingsStore.androidAutoBoostDb(ctx) else RbsSettingsStore.volumeBoostDb(ctx)
   }
 

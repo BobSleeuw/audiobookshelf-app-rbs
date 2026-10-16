@@ -2308,6 +2308,7 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
     }
 
     override fun getCustomAction(player: Player): PlaybackStateCompat.CustomAction? {
+      if (!RbsSettingsStore.volumeBoostEnabled(getContext())) return null
       val db = RbsSettingsStore.androidAutoBoostDb(getContext())
       val label = if (db > 0) "Volume boost +$db dB" else "Volume boost off"
       return PlaybackStateCompat.CustomAction.Builder(CUSTOM_ACTION_CHANGE_BOOST, label, boostIcon(db)).build()

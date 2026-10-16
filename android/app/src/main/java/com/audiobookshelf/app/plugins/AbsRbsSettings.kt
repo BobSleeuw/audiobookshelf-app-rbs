@@ -69,6 +69,8 @@ class AbsRbsSettings : Plugin() {
       .put("bluetoothDelaySeconds", RbsSettingsStore.bluetoothDelaySeconds(context))
       .put("volumeBoostDb", RbsSettingsStore.volumeBoostDb(context))
       .put("androidAutoVolumeBoostDb", RbsSettingsStore.androidAutoBoostDb(context))
+      .put("volumeBoostEnabled", RbsSettingsStore.volumeBoostEnabled(context))
+      .put("bluetoothAutoPlayEnabled", RbsSettingsStore.bluetoothAutoPlayEnabled(context))
       .put("maxBoostDb", RbsSettingsStore.MAX_BOOST_DB)
       .put("maxBluetoothDelaySeconds", RbsSettingsStore.MAX_BLUETOOTH_DELAY_SECONDS)
       .put("ignoringBatteryOptimizations", isIgnoringBatteryOptimizations())
@@ -80,10 +82,21 @@ class AbsRbsSettings : Plugin() {
     call.resolve(settingsObject())
   }
 
-  /** Sets one of: bluetoothDelaySeconds, volumeBoostDb, androidAutoVolumeBoostDb */
+  /** Sets one of: bluetoothDelaySeconds, volumeBoostDb, androidAutoVolumeBoostDb (numbers), volumeBoostEnabled, bluetoothAutoPlayEnabled (booleans) */
   @PluginMethod
   fun setSetting(call: PluginCall) {
     val key = call.getString("key")
+    if (key == RbsSettingsStore.KEY_BOOST_ENABLED || key == RbsSettingsStore.KEY_BLUETOOTH_ENABLED) {
+      val flag = call.getBoolean("value")
+      if (flag == null) {
+        call.reject("value required")
+        return
+      }
+      RbsSettingsStore.setBoolean(context, key, flag)
+      if (key == RbsSettingsStore.KEY_BOOST_ENABLED) VolumeBooster.apply()
+      call.resolve(settingsObject())
+      return
+    }
     val value = call.getInt("value")
     if (key == null || value == null) {
       call.reject("key and value required")

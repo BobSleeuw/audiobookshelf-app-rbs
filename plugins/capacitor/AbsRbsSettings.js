@@ -2,6 +2,8 @@ import { registerPlugin, WebPlugin } from '@capacitor/core'
 
 /**
  * @typedef {Object} RbsSettings
+ * @property {boolean} bluetoothAutoPlayEnabled - Master switch; the per device toggles are kept when it is off
+ * @property {boolean} volumeBoostEnabled - Master switch for both boost levels
  * @property {number} bluetoothDelaySeconds - Wait after a Bluetooth device connects before playback starts
  * @property {number} volumeBoostDb - Volume boost for normal playback
  * @property {number} androidAutoVolumeBoostDb - Volume boost while connected to Android Auto
@@ -14,7 +16,9 @@ import { registerPlugin, WebPlugin } from '@capacitor/core'
 class AbsRbsSettingsWeb extends WebPlugin {
   async getSettings() {
     return {
+      bluetoothAutoPlayEnabled: true,
       bluetoothDelaySeconds: 5,
+      volumeBoostEnabled: false,
       volumeBoostDb: 0,
       androidAutoVolumeBoostDb: 0,
       maxBoostDb: 15,

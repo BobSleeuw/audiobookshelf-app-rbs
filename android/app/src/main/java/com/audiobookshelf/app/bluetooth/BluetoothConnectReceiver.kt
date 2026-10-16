@@ -33,6 +33,7 @@ class BluetoothConnectReceiver : BroadcastReceiver() {
     }
 
     BluetoothAutoPlayStore.remember(context, address, name, true)
+    if (!RbsSettingsStore.bluetoothAutoPlayEnabled(context)) return
     if (!BluetoothAutoPlayStore.isEnabled(context, address)) return
 
     // ACL connect can fire repeatedly while a device (re)connects

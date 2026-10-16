@@ -75,14 +75,16 @@ class BrowseTree(
 
     rootList += downloadsMetadata
 
-    // Volume boost menu (Android Auto boost level)
-    val boostDb = RbsSettingsStore.androidAutoBoostDb(context)
-    val boostMetadata = MediaMetadataCompat.Builder().apply {
-      putString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID, BOOST_ROOT)
-      putString(MediaMetadataCompat.METADATA_KEY_TITLE, "Volume boost: ${if (boostDb > 0) "+$boostDb dB" else "Off"}")
-      putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, getUriToDrawable(context, boostIcon(boostDb)).toString())
-    }.build()
-    rootList += boostMetadata
+    // Volume boost menu (Android Auto boost level), hidden when volume boost is switched off
+    if (RbsSettingsStore.volumeBoostEnabled(context)) {
+      val boostDb = RbsSettingsStore.androidAutoBoostDb(context)
+      val boostMetadata = MediaMetadataCompat.Builder().apply {
+        putString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID, BOOST_ROOT)
+        putString(MediaMetadataCompat.METADATA_KEY_TITLE, "Volume boost: ${if (boostDb > 0) "+$boostDb dB" else "Off"}")
+        putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, getUriToDrawable(context, boostIcon(boostDb)).toString())
+      }.build()
+      rootList += boostMetadata
+    }
 
     mediaIdToChildren[AUTO_BROWSE_ROOT] = rootList
   }
