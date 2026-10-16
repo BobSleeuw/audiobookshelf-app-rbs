@@ -35,6 +35,13 @@
       <p class="text-sm tabular-nums">{{ values[item.id] }}</p>
     </div>
     <p v-if="item.help" class="text-xs text-fg-muted mt-0.5">{{ item.help }}</p>
+
+    <!-- "End of chapter" is not a length, so it is a separate choice instead of a point on the slider -->
+    <div v-if="item.special" class="mt-2 mb-1">
+      <ui-toggle-btns :value="isSpecial ? 'special' : 'time'" :items="[{ text: item.timeText || 'Set time', value: 'time' }, { text: item.special, value: 'special' }]" @input="setMode" />
+    </div>
+
+    <template v-if="!isSpecial">
     <input :value="stepIndex" type="range" min="0" :max="item.options.length - 1" step="1" class="w-full" @input="setStep($event.target.value)" />
     <div class="flex justify-between px-2 -mt-0.5 pointer-events-none">
       <div v-for="(option, index) in item.options" :key="option" class="w-0 flex flex-col items-center">
@@ -42,20 +49,23 @@
         <span class="text-[10px] mt-1 whitespace-nowrap" :class="index === stepIndex ? 'text-fg' : 'text-fg-muted'">{{ item.ticks ? item.ticks[index] : option }}</span>
       </div>
     </div>
+    </template>
   </div>
 
   <!-- start and end time on one line; tapping one opens the Android style clock picker -->
   <div v-else-if="item.type === 'timerange'" class="py-3">
     <p>{{ label }}</p>
     <p v-if="item.help" class="text-xs text-fg-muted mt-0.5">{{ item.help }}</p>
-    <div class="flex items-end space-x-3 mt-2">
-      <div class="flex-1 cursor-pointer" @click="openClock(item.startId, $strings.LabelStartTime)">
-        <p class="text-xs text-fg-muted mb-1">{{ $strings.LabelStartTime }}</p>
+    <div class="grid items-center gap-x-3 gap-y-1 mt-2" style="grid-template-columns: 1fr auto 1fr">
+      <p class="text-xs text-fg-muted">{{ $strings.LabelStartTime }}</p>
+      <span />
+      <p class="text-xs text-fg-muted">{{ $strings.LabelEndTime }}</p>
+
+      <div class="cursor-pointer" @click="openClock(item.startId, $strings.LabelStartTime)">
         <ui-text-input :value="values[item.startId]" readonly append-icon="schedule" :autofocus="false" />
       </div>
-      <span class="material-symbols text-fg-muted pb-2">arrow_forward</span>
-      <div class="flex-1 cursor-pointer" @click="openClock(item.endId, $strings.LabelEndTime)">
-        <p class="text-xs text-fg-muted mb-1">{{ $strings.LabelEndTime }}</p>
+      <span class="material-symbols text-fg-muted">arrow_forward</span>
+      <div class="cursor-pointer" @click="openClock(item.endId, $strings.LabelEndTime)">
         <ui-text-input :value="values[item.endId]" readonly append-icon="schedule" :autofocus="false" />
       </div>
     </div>
@@ -76,11 +86,15 @@ export default {
     values: Object
   },
   data() {
-    return { showClock: false, clockKey: null, clockTitle: '' }
+    return { showClock: false, clockKey: null, clockTitle: '', lastTime: null }
   },
   computed: {
     clockTime() {
       return this.clockKey ? this.values[this.clockKey] : '00:00'
+    },
+    /** The "special" value (End of chapter) is selected instead of a length */
+    isSpecial() {
+      return !!this.item.special && this.values[this.item.id] === this.item.special
     },
     stepIndex() {
       return Math.max(0, (this.item.options || []).indexOf(this.values[this.item.id]))
@@ -90,6 +104,15 @@ export default {
     }
   },
   methods: {
+    setMode(mode) {
+      if (mode === 'special') {
+        // Remember the length so it comes back when going back to "Set time"
+        this.lastTime = this.values[this.item.id]
+        this.values[this.item.id] = this.item.special
+      } else {
+        this.values[this.item.id] = this.lastTime || this.item.default || this.item.options[0]
+      }
+    },
     setStep(index) {
       this.values[this.item.id] = this.item.options[Number(index)]
     },

@@ -15,8 +15,8 @@ const LANGUAGES = ['Български', 'Català', 'Čeština', 'Dansk', 'Deuts
 const JUMP_OPTIONS = ['5s', '10s', '15s', '30s', '60s', '2m', '5m']
 
 // Choices of the real app (SleepTimerLengthModal / AutoSleepTimerRewindLengthModal)
-const SLEEP_LENGTHS = ['End of chapter', '5 min', '10 min', '15 min', '30 min', '45 min', '60 min', '90 min']
-const SLEEP_LENGTH_TICKS = ['Chapter', '5', '10', '15', '30', '45', '60', '90']
+const SLEEP_LENGTHS = ['5 min', '10 min', '15 min', '30 min', '45 min', '60 min', '90 min']
+const SLEEP_LENGTH_TICKS = ['5', '10', '15', '30', '45', '60', '90']
 const REWIND_LENGTHS = ['5 min', '10 min', '15 min', '30 min', '45 min', '60 min', '90 min']
 const REWIND_LENGTH_TICKS = ['5', '10', '15', '30', '45', '60', '90']
 
@@ -65,7 +65,7 @@ export const GROUPS = [
       { id: 'disableVibrate', short: 'Vibrate on reset', type: 'toggle', labelKey: 'LabelDisableVibrateOnReset', help: 'Your phone normally vibrates when the timer is reset.', default: false },
       { id: 'chime', short: 'Almost-done chime', type: 'toggle', labelKey: 'LabelSleepTimerAlmostDoneChime', help: 'Plays a chime when 30 seconds remain.', default: true },
       { id: 'autoTimer', short: 'Auto sleep timer', dividerBefore: true, type: 'toggle', labelKey: 'LabelAutoSleepTimer', help: 'Starts a sleep timer by itself when you play between the start and end time.', default: true, },
-      { id: 'autoLength', short: 'Sleep timer length', type: 'steps', label: 'Sleep timer length', options: SLEEP_LENGTHS, ticks: SLEEP_LENGTH_TICKS, default: '15 min', showIf: 'autoTimer' },
+      { id: 'autoLength', short: 'Sleep timer length', type: 'steps', label: 'Sleep timer length', options: SLEEP_LENGTHS, ticks: SLEEP_LENGTH_TICKS, special: 'End of chapter', timeText: 'Set time', default: '15 min', showIf: 'autoTimer' },
       { id: 'autoWindow', short: 'Start and end time', type: 'timerange', label: 'Active between', startId: 'autoStart', endId: 'autoEnd', showIf: 'autoTimer' },
       { id: 'autoRewind', short: 'Auto timer rewind', type: 'toggle', labelKey: 'LabelAutoSleepTimerAutoRewind', help: 'When the timer has ended and you press play again, your position moves back a little so you can find where you fell asleep.', default: false, showIf: 'autoTimer' },
       { id: 'autoRewindTime', short: 'Auto rewind time', type: 'steps', labelKey: 'LabelAutoRewindTime', options: REWIND_LENGTHS, ticks: REWIND_LENGTH_TICKS, default: '5 min', showIf: ['autoTimer', 'autoRewind'] }
