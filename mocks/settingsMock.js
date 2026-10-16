@@ -7,16 +7,18 @@ import Vue from 'vue'
  * item.type: toggle | select | slider | link | time
  * item.showIf: id of a toggle that must be on for the item to show
  */
+const LANGUAGES = ['Български', 'Català', 'Čeština', 'Dansk', 'Deutsch', 'English', 'Español', 'Français', 'Hrvatski', 'Italiano', 'Magyar', 'Nederlands', 'Norsk', 'Polski', 'Português', 'Română', 'Русский', 'Slovenčina', 'Suomi', 'Svenska', 'Українська', '中文', '日本語', '한국어']
+
 export const GROUPS = [
   {
     id: 'appearance',
     title: 'Appearance',
     icon: 'palette',
     items: [
-      { id: 'bookshelfView', short: 'Bookshelf view', type: 'toggle', labelKey: 'LabelUseBookshelfView', default: true },
       { id: 'theme', short: 'Theme', type: 'select', labelKey: 'LabelTheme', options: ['Dark', 'Light', 'Black'], default: 'Dark' },
-      { id: 'language', short: 'Language', type: 'select', labelKey: 'LabelLanguage', options: ['English', 'Nederlands', 'Deutsch'], default: 'English' },
+      { id: 'language', short: 'Language', type: 'select', labelKey: 'LabelLanguage', options: LANGUAGES, default: 'English' },
       { id: 'lockOrientation', short: 'Lock orientation', type: 'toggle', labelKey: 'LabelLockOrientation', default: false },
+      { id: 'bookshelfView', short: 'Bookshelf view', type: 'toggle', labelKey: 'LabelUseBookshelfView', default: true },
       { id: 'haptics', short: 'Haptic feedback', type: 'select', labelKey: 'LabelHapticFeedback', options: ['None', 'Light', 'Medium', 'Heavy'], default: 'Light' }
     ],
     summary: (v) => `${v.theme} theme · ${v.language} · ${v.bookshelfView ? 'Bookshelf view' : 'List view'}`

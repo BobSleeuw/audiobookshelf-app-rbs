@@ -37,9 +37,13 @@ export default {
       if (item.type === 'toggle') {
         this.values[item.id] = !this.values[item.id]
       } else if (item.type === 'select') {
-        // Mockup only: cycle through the options instead of opening a menu
-        const index = item.options.indexOf(this.values[item.id])
-        this.values[item.id] = item.options[(index + 1) % item.options.length]
+        if (this.$listeners.pick) {
+          this.$emit('pick', item)
+        } else {
+          // Mockups without a picker: cycle through the options
+          const index = item.options.indexOf(this.values[item.id])
+          this.values[item.id] = item.options[(index + 1) % item.options.length]
+        }
       }
     }
   }

@@ -1,6 +1,6 @@
 <template>
   <!-- Mockup A: categories list (names of the settings inside, no values) that opens one page per category, with search -->
-  <div class="w-full h-full flex flex-col overflow-hidden bg-bg text-fg">
+  <div class="relative w-full h-full flex flex-col overflow-hidden bg-bg text-fg">
     <settingsmock-header :title="current ? current.title : 'Settings'" :back="!!current" @back="closeSection" />
 
     <!-- search -->
@@ -42,9 +42,12 @@
     <!-- one category -->
     <div v-else ref="section" class="flex-grow overflow-y-auto px-4">
       <div v-for="item in items" :key="item.id" :data-item="item.id" class="border-b border-fg/10 last:border-0 transition-colors duration-700" :class="highlightId === item.id ? 'bg-success/20' : ''">
-        <settingsmock-row :item="item" :values="values" />
+        <settingsmock-row :item="item" :values="values" @pick="picker = $event" />
       </div>
     </div>
+
+    <!-- choice pop-up -->
+    <settingsmock-picker v-if="picker" :title="$strings[picker.labelKey]" :options="picker.options" :value="values[picker.id]" @select="choose" @close="picker = null" />
   </div>
 </template>
 
@@ -53,7 +56,7 @@ import { GROUPS, createValues, visibleItems } from '@/mocks/settingsMock'
 
 export default {
   data() {
-    return { groups: GROUPS, values: createValues(), current: null, query: '', highlightId: null }
+    return { groups: GROUPS, values: createValues(), current: null, query: '', highlightId: null, picker: null }
   },
   computed: {
     items() {
@@ -90,6 +93,10 @@ export default {
         this.highlightId = focusId
         setTimeout(() => (this.highlightId = null), 1800)
       })
+    },
+    choose(option) {
+      this.values[this.picker.id] = option
+      this.picker = null
     },
     closeSection() {
       this.current = null
