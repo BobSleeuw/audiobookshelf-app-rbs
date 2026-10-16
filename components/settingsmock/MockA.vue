@@ -56,7 +56,7 @@
 </template>
 
 <script>
-import { GROUPS, createValues, visibleItems } from '@/mocks/settingsMock'
+import { GROUPS, createValues, visibleItems, focusTarget } from '@/mocks/settingsMock'
 
 export default {
   data() {
@@ -120,7 +120,7 @@ export default {
     },
     /** Open the category of a search result and jump to the setting (a setting that only shows under another one jumps to that one) */
     openResult({ group, item }) {
-      this.openSection(group, item.showIf || item.id)
+      this.openSection(group, focusTarget(item, this.values))
     }
   }
 }

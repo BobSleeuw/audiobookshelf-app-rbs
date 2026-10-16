@@ -6,12 +6,19 @@ import Vue from 'vue'
  *
  * item.dividerBefore: draw a divider line above the setting
  * item.type: toggle | select | slider | steps | link | time
- * item.showIf: id of a toggle that must be on for the item to show
+ * item.showIf: id (or list of ids) of toggles that must be on for the item to show
+ * item.help: small explanation shown under the label
  */
 const LANGUAGES = ['Български', 'Català', 'Čeština', 'Dansk', 'Deutsch', 'English', 'Español', 'Français', 'Hrvatski', 'Italiano', 'Magyar', 'Nederlands', 'Norsk', 'Polski', 'Português', 'Română', 'Русский', 'Slovenčina', 'Suomi', 'Svenska', 'Українська', '中文', '日本語', '한국어']
 
 // Seconds the app offers for jumping (5, 10, 15, 30, 60, 120, 300), labelled like the real Settings page
 const JUMP_OPTIONS = ['5s', '10s', '15s', '30s', '60s', '2m', '5m']
+
+// Choices of the real app (SleepTimerLengthModal / AutoSleepTimerRewindLengthModal)
+const SLEEP_LENGTHS = ['End of chapter', '5 min', '10 min', '15 min', '30 min', '45 min', '60 min', '90 min']
+const SLEEP_LENGTH_TICKS = ['Chapter', '5', '10', '15', '30', '45', '60', '90']
+const REWIND_LENGTHS = ['5 min', '10 min', '15 min', '30 min', '45 min', '60 min', '90 min']
+const REWIND_LENGTH_TICKS = ['5', '10', '15', '30', '45', '60', '90']
 
 export const GROUPS = [
   {
@@ -52,16 +59,16 @@ export const GROUPS = [
     description: 'Auto timer, shaking and fade out',
     icon: 'bedtime',
     items: [
-      { id: 'disableShake', short: 'Shake to reset', type: 'toggle', labelKey: 'LabelDisableShakeToReset', default: false },
-      { id: 'shakeSensitivity', short: 'Shake sensitivity', type: 'select', labelKey: 'LabelShakeSensitivity', options: ['Very low', 'Low', 'Medium', 'High'], default: 'Medium', showIfNot: 'disableShake' },
-      { id: 'disableFade', short: 'Fade out', type: 'toggle', labelKey: 'LabelDisableAudioFadeOut', default: false },
-      { id: 'disableVibrate', short: 'Vibrate on reset', type: 'toggle', labelKey: 'LabelDisableVibrateOnReset', default: false },
-      { id: 'chime', short: 'Almost-done chime', type: 'toggle', labelKey: 'LabelSleepTimerAlmostDoneChime', default: true },
-      { id: 'autoTimer', short: 'Auto sleep timer', type: 'toggle', labelKey: 'LabelAutoSleepTimer', default: true },
-      { id: 'autoStart', short: 'Auto timer start time', type: 'time', labelKey: 'LabelStartTime', default: '22:00', showIf: 'autoTimer' },
-      { id: 'autoEnd', short: 'Auto timer end time', type: 'time', labelKey: 'LabelEndTime', default: '06:00', showIf: 'autoTimer' },
-      { id: 'autoLength', short: 'Auto timer length', type: 'select', labelKey: 'LabelSleepTimer', options: ['15 min', '30 min', '45 min', '60 min'], default: '15 min', showIf: 'autoTimer' },
-      { id: 'autoRewind', short: 'Auto timer rewind', type: 'toggle', labelKey: 'LabelAutoSleepTimerAutoRewind', default: false, showIf: 'autoTimer' }
+      { id: 'shakeReset', short: 'Shake to reset', type: 'toggle', label: 'Shake to reset', help: 'Shake your phone while the timer runs, or within 2 minutes after it ends, to restart it.', default: true },
+      { id: 'shakeSensitivity', short: 'Shake sensitivity', type: 'select', labelKey: 'LabelShakeSensitivity', options: ['Very low', 'Low', 'Medium', 'High', 'Very high'], default: 'Medium', showIf: 'shakeReset' },
+      { id: 'disableFade', short: 'Audio fade out', dividerBefore: true, type: 'toggle', labelKey: 'LabelDisableAudioFadeOut', help: 'The volume normally fades out during the last minute of the timer.', default: false },
+      { id: 'disableVibrate', short: 'Vibrate on reset', type: 'toggle', labelKey: 'LabelDisableVibrateOnReset', help: 'Your phone normally vibrates when the timer is reset.', default: false },
+      { id: 'chime', short: 'Almost-done chime', type: 'toggle', labelKey: 'LabelSleepTimerAlmostDoneChime', help: 'Plays a chime when 30 seconds remain.', default: true },
+      { id: 'autoTimer', short: 'Auto sleep timer', dividerBefore: true, type: 'toggle', labelKey: 'LabelAutoSleepTimer', help: 'Starts a sleep timer by itself when you play between the start and end time.', default: true, },
+      { id: 'autoLength', short: 'Sleep timer length', type: 'steps', label: 'Sleep timer length', options: SLEEP_LENGTHS, ticks: SLEEP_LENGTH_TICKS, default: '15 min', showIf: 'autoTimer' },
+      { id: 'autoWindow', short: 'Start and end time', type: 'timerange', label: 'Active between', startId: 'autoStart', endId: 'autoEnd', showIf: 'autoTimer' },
+      { id: 'autoRewind', short: 'Auto timer rewind', type: 'toggle', labelKey: 'LabelAutoSleepTimerAutoRewind', help: 'When the timer has ended and you press play again, your position moves back a little so you can find where you fell asleep.', default: false, showIf: 'autoTimer' },
+      { id: 'autoRewindTime', short: 'Auto rewind time', type: 'steps', labelKey: 'LabelAutoRewindTime', options: REWIND_LENGTHS, ticks: REWIND_LENGTH_TICKS, default: '5 min', showIf: ['autoTimer', 'autoRewind'] }
     ],
     summary: (v) => (v.autoTimer ? `Auto ${v.autoStart}–${v.autoEnd} · ${v.autoLength}` : 'Auto sleep timer off')
   },
@@ -96,6 +103,8 @@ export const QUICK_TILES = [
 export function createValues() {
   const values = {}
   GROUPS.forEach((g) => g.items.forEach((i) => (values[i.id] = i.default !== undefined ? i.default : null)))
+  values.autoStart = '22:00'
+  values.autoEnd = '06:00'
   return Vue.observable(values)
 }
 
@@ -109,5 +118,18 @@ export function findItem(id) {
 
 /** Items of a group that are visible with the current values (some depend on a toggle) */
 export function visibleItems(group, values) {
-  return group.items.filter((i) => (!i.showIf || values[i.showIf]) && (!i.showIfNot || !values[i.showIfNot]))
+  return group.items.filter((i) => isVisible(i, values))
+}
+
+/** showIf is the id (or a list of ids) of toggles that must all be on */
+export function isVisible(item, values) {
+  const deps = [].concat(item.showIf || [])
+  return deps.every((id) => values[id]) && (!item.showIfNot || !values[item.showIfNot])
+}
+
+/** The setting to jump to for a search result: itself, or the first switched-off toggle that hides it */
+export function focusTarget(item, values) {
+  const deps = [].concat(item.showIf || [])
+  const off = deps.find((id) => !values[id])
+  return off || item.id
 }
