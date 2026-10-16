@@ -44,31 +44,22 @@
     </div>
   </div>
 
-  <!-- start and end time on one line, with a two-handle slider over the night (18:00 to 12:00) -->
+  <!-- start and end time on one line; tapping one opens the Android style clock picker -->
   <div v-else-if="item.type === 'timerange'" class="py-3">
     <p>{{ label }}</p>
     <p v-if="item.help" class="text-xs text-fg-muted mt-0.5">{{ item.help }}</p>
     <div class="flex items-end space-x-3 mt-2">
-      <div class="flex-1">
+      <div class="flex-1 cursor-pointer" @click="openClock(item.startId, $strings.LabelStartTime)">
         <p class="text-xs text-fg-muted mb-1">{{ $strings.LabelStartTime }}</p>
-        <ui-text-input v-model="values[item.startId]" type="time" :autofocus="false" />
+        <ui-text-input :value="values[item.startId]" readonly append-icon="schedule" :autofocus="false" />
       </div>
       <span class="material-symbols text-fg-muted pb-2">arrow_forward</span>
-      <div class="flex-1">
+      <div class="flex-1 cursor-pointer" @click="openClock(item.endId, $strings.LabelEndTime)">
         <p class="text-xs text-fg-muted mb-1">{{ $strings.LabelEndTime }}</p>
-        <ui-text-input v-model="values[item.endId]" type="time" :autofocus="false" />
+        <ui-text-input :value="values[item.endId]" readonly append-icon="schedule" :autofocus="false" />
       </div>
     </div>
-
-    <div class="relative h-6 mt-4">
-      <div class="absolute top-1/2 h-1 rounded bg-fg-muted opacity-40" style="left: 8px; right: 8px; transform: translateY(-50%)" />
-      <div class="absolute top-1/2 h-1 rounded bg-success" :style="{ left: `calc(8px + (100% - 16px) * ${startOffset / RANGE_MAX})`, right: `calc(8px + (100% - 16px) * ${1 - endOffset / RANGE_MAX})`, transform: 'translateY(-50%)' }" />
-      <input class="dual-range" type="range" min="0" :max="RANGE_MAX" step="15" :value="startOffset" @input="setStart($event.target.value)" />
-      <input class="dual-range" type="range" min="0" :max="RANGE_MAX" step="15" :value="endOffset" @input="setEnd($event.target.value)" />
-    </div>
-    <div class="relative h-5 pointer-events-none">
-      <span v-for="tick in rangeTicks" :key="tick.label" class="absolute text-[10px] text-fg-muted whitespace-nowrap" :style="{ left: `calc(8px + (100% - 16px) * ${tick.at})`, transform: 'translateX(-50%)' }">{{ tick.label }}</span>
-    </div>
+    <settingsmock-clock-picker v-model="showClock" :time="clockTime" :title="clockTitle" @confirm="setClockTime" />
   </div>
 
   <div v-else-if="item.type === 'link'" class="py-3 flex items-center">
@@ -79,43 +70,20 @@
 </template>
 
 <script>
-// The night window slider covers 18:00 to 12:00 the next day, in 15 minute steps
-const RANGE_START_MINUTES = 18 * 60
-const RANGE_MAX = 18 * 60
-
-function timeToOffset(time) {
-  const [h, m] = String(time || '00:00')
-    .split(':')
-    .map(Number)
-  const offset = (h * 60 + m - RANGE_START_MINUTES + 1440) % 1440
-  return Math.min(RANGE_MAX, offset)
-}
-
-function offsetToTime(offset) {
-  const total = (Number(offset) + RANGE_START_MINUTES) % 1440
-  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
-}
-
 export default {
   props: {
     item: Object,
     values: Object
   },
   data() {
-    return { RANGE_MAX }
+    return { showClock: false, clockKey: null, clockTitle: '' }
   },
   computed: {
+    clockTime() {
+      return this.clockKey ? this.values[this.clockKey] : '00:00'
+    },
     stepIndex() {
       return Math.max(0, (this.item.options || []).indexOf(this.values[this.item.id]))
-    },
-    startOffset() {
-      return this.item.startId ? timeToOffset(this.values[this.item.startId]) : 0
-    },
-    endOffset() {
-      return this.item.endId ? timeToOffset(this.values[this.item.endId]) : 0
-    },
-    rangeTicks() {
-      return [18, 21, 0, 3, 6, 9, 12].map((hour, index) => ({ label: String(hour).padStart(2, '0'), at: (index * 3 * 60) / RANGE_MAX }))
     },
     label() {
       return this.item.label || this.$strings[this.item.labelKey] || this.item.labelKey
@@ -125,11 +93,13 @@ export default {
     setStep(index) {
       this.values[this.item.id] = this.item.options[Number(index)]
     },
-    setStart(offset) {
-      this.values[this.item.startId] = offsetToTime(Math.min(Number(offset), this.endOffset - 15))
+    openClock(key, title) {
+      this.clockKey = key
+      this.clockTitle = title
+      this.showClock = true
     },
-    setEnd(offset) {
-      this.values[this.item.endId] = offsetToTime(Math.max(Number(offset), this.startOffset + 15))
+    setClockTime(time) {
+      this.values[this.clockKey] = time
     },
     toggle() {
       this.values[this.item.id] = !this.values[this.item.id]
@@ -146,42 +116,3 @@ export default {
   }
 }
 </script>
-
-<style>
-/* Two sliders on top of each other make the start / end handles of the time window */
-.dual-range {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  background: transparent;
-  pointer-events: none;
-  -webkit-appearance: none;
-  appearance: none;
-}
-.dual-range::-webkit-slider-runnable-track {
-  height: 100%;
-  background: transparent;
-}
-.dual-range::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  pointer-events: auto;
-  width: 16px;
-  height: 16px;
-  margin-top: 4px;
-  border-radius: 50%;
-  background: #0075ff;
-  cursor: pointer;
-}
-.dual-range::-moz-range-thumb {
-  pointer-events: auto;
-  width: 16px;
-  height: 16px;
-  border: none;
-  border-radius: 50%;
-  background: #0075ff;
-  cursor: pointer;
-}
-</style>
