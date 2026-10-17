@@ -36,6 +36,13 @@ export default {
     networkChangeCounter() {
       if (!this.hasMounted) return
       if (this.addressTimer) clearTimeout(this.addressTimer)
+    clearTimeout(this.switchingTimeout)
+      // With an internal URL the address may have to change: show the busy icon right away (until the switch is done)
+      if (this.$store.state.user.serverConnectionConfig?.localAddress) {
+        this.$store.commit('setSwitchingAddress', true)
+        clearTimeout(this.switchingTimeout)
+        this.switchingTimeout = setTimeout(() => this.$store.commit('setSwitchingAddress', false), 15000) // never stay busy
+      }
       this.addressTimer = setTimeout(() => this.updateActiveAddress(), 2500)
     },
     networkConnected: {
@@ -140,7 +147,8 @@ export default {
     /** Switches the connected server between its local and remote address when the network changed */
     async updateActiveAddress() {
       const config = this.$store.state.user.serverConnectionConfig
-      if (!config?.localAddress || this.attemptingConnection) return
+      if (!config?.localAddress || this.attemptingConnection) return this.endSwitching()
+      let switched = false
       try {
         const activeAddress = await this.$localNetwork.resolveAddress(config)
         if (!activeAddress || activeAddress === config.address) return
@@ -149,9 +157,24 @@ export default {
         const updated = await this.$db.updateServerAddresses({ id: config.id, address: activeAddress })
         this.$store.commit('user/setServerConnectionConfig', { ...config, address: updated.address })
         this.$socket.connect(updated.address, this.$store.getters['user/getToken'])
+        switched = true
       } catch (error) {
         AbsLogger.error({ tag: 'default', message: `updateActiveAddress: Failed: ${error?.message}` })
+      } finally {
+        if (switched) await this.waitForSocket()
+        this.endSwitching()
       }
+    },
+    /** Waits (at most 8 seconds) until the socket is connected again after switching the address */
+    async waitForSocket() {
+      await new Promise((resolve) => setTimeout(resolve, 600))
+      for (let i = 0; i < 40 && !this.socketConnected; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 200))
+      }
+    },
+    endSwitching() {
+      clearTimeout(this.switchingTimeout)
+      this.$store.commit('setSwitchingAddress', false)
     },
     /**
      * Retries attemptConnection with a growing delay so a temporary server/tunnel/network problem does not leave

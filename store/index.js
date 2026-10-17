@@ -12,6 +12,7 @@ export const state = () => ({
   isCasting: false,
   isCastAvailable: false,
   attemptingConnection: false,
+  switchingAddress: false, // moving between the internal and external server address after a network change
   socketConnected: false,
   networkConnected: false,
   networkConnectionType: null,
@@ -146,6 +147,9 @@ export const mutations = {
   },
   setCastAvailable(state, available) {
     state.isCastAvailable = available
+  },
+  setSwitchingAddress(state, val) {
+    state.switchingAddress = !!val
   },
   setAttemptingConnection(state, val) {
     state.attemptingConnection = val
