@@ -116,7 +116,7 @@ export default {
         volumeBoostEnabled: false,
         volumeBoostDb: 0,
         androidAutoVolumeBoostDb: 0,
-        maxBoostDb: 15
+        maxBoostDb: 20
       },
       history: { enabled: true, minSeconds: 60, showBar: true },
       bluetooth: { loading: false, loaded: false, granted: false, devices: [] },
@@ -585,7 +585,7 @@ export default {
           volumeBoostEnabled: !!settings.volumeBoostEnabled,
           volumeBoostDb: settings.volumeBoostDb,
           androidAutoVolumeBoostDb: settings.androidAutoVolumeBoostDb,
-          maxBoostDb: settings.maxBoostDb || 15
+          maxBoostDb: settings.maxBoostDb || 20
         }
       } catch (error) {
         console.error('[settings] Failed to load RBS settings', error)

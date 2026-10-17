@@ -24,7 +24,7 @@ class AbsRbsSettingsWeb extends WebPlugin {
       volumeBoostEnabled: false,
       volumeBoostDb: 0,
       androidAutoVolumeBoostDb: 0,
-      maxBoostDb: 15,
+      maxBoostDb: 20,
       maxBluetoothDelaySeconds: 60,
       ignoringBatteryOptimizations: true,
       carConnected: false

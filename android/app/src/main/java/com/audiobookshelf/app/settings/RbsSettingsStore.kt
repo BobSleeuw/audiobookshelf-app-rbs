@@ -22,7 +22,7 @@ object RbsSettingsStore {
 
   const val DEFAULT_BLUETOOTH_DELAY_SECONDS = 5
   const val MAX_BLUETOOTH_DELAY_SECONDS = 60
-  const val MAX_BOOST_DB = 15
+  const val MAX_BOOST_DB = 20
 
   private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 

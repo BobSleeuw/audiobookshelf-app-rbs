@@ -210,7 +210,7 @@
   "LabelHistoryReasonNextChapter": "Skipped to the next chapter",
   "LabelHistoryReasonOther": "Jumped in the book",
   "LabelHistoryReasonUndo": "Went back in history",
-  "LabelHistoryShowGoBackBar": "Show a go back bar after a jump",
+  "LabelHistoryShowGoBackBar": "Show a \"go back\" bar after a jump",
   "LabelHomeNetworkSsids": "Home network Wi-Fi SSID(s)",
   "LabelHost": "Host",
   "LabelInProgress": "In Progress",
