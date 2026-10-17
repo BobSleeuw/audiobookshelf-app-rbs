@@ -47,11 +47,10 @@
           <ui-toggle-btns v-model="progressMode" :items="[{ text: 'Chapter Track', value: 'chapter' }, { text: 'Total Track', value: 'book' }]" />
         </div>
 
-        <p class="uppercase text-xs font-semibold text-fg-muted mt-4 mb-2">New: how to change the boost in the car</p>
-        <ui-toggle-btns v-model="boostStyle" :items="[{ text: 'On/off', value: 'toggle' }, { text: '− and +', value: 'plusminus' }, { text: 'Step', value: 'step' }, { text: 'List', value: 'list' }]" />
-        <p class="text-xs text-fg-muted mt-2">{{ boostStyleText }}</p>
+        <p class="uppercase text-xs font-semibold text-fg-muted mt-4 mb-2">The boost button in the car (decided)</p>
+        <p class="text-xs text-fg-muted">One button. Each tap raises the boost by 2 dB: Off, +2, +4 ... +20, then Off again. It changes the same level as the slider above. Try it in the car screen.</p>
 
-        <p class="uppercase text-xs font-semibold text-fg-muted mt-5 mb-2">New: what the Queue button shows</p>
+        <p class="uppercase text-xs font-semibold text-fg-muted mt-5 mb-2">Queue button (Connections &amp; data → Android Auto → Queue shows)</p>
         <ui-toggle-btns v-model="queueMode" :items="[{ text: 'Files (now)', value: 'files' }, { text: 'Chapters', value: 'chapters' }]" />
         <p class="text-xs text-fg-muted mt-2">Android Auto has one fixed button, always called "Queue". We cannot add a second button next to it, but we can fill that list with the chapters and give the list the title "Chapters". Tapping a chapter jumps to it.</p>
 
@@ -90,7 +89,7 @@
 export default {
   layout: 'blank',
   data() {
-    return { level: 9, boostEnabled: true, boostStyle: 'plusminus', proposed: false, progressMode: 'chapter', queueMode: 'chapters', covers: false, scale: 0.85 }
+    return { level: 9, boostEnabled: true, boostStyle: 'step', proposed: false, progressMode: 'chapter', queueMode: 'chapters', covers: false, scale: 0.85 }
   },
   computed: {
     chapterProgress() {

@@ -175,7 +175,7 @@ export default {
         const on = this.boostActive && this.level > 0
         if (this.boostStyle === 'toggle') list.push({ id: 'boost', text: on ? '+' + this.level : 'Off', highlight: on, kind: 'toggle' })
         else if (this.boostStyle === 'plusminus') list.push({ id: 'minus', icon: 'remove', kind: 'minus', proposed: true }, { id: 'plus', icon: 'add', kind: 'plus', proposed: true })
-        else if (this.boostStyle === 'step') list.push({ id: 'step', text: this.level > 0 ? '+' + this.level : 'Off', highlight: this.level > 0, kind: 'step', proposed: true })
+        else if (this.boostStyle === 'step') list.push({ id: 'step', text: this.level > 0 ? '+' + this.level : 'Off', highlight: this.level > 0, kind: 'step' })
       }
       if (this.proposed) list.push({ id: 'bookmark', icon: 'bookmark_add', proposed: true })
       return list
@@ -200,7 +200,10 @@ export default {
       if (action.kind === 'toggle') this.boostActive = !this.boostActive
       else if (action.kind === 'plus') this.$emit('level', Math.min(20, this.level + 1))
       else if (action.kind === 'minus') this.$emit('level', Math.max(0, this.level - 1))
-      else if (action.kind === 'step') this.$emit('level', this.level >= 20 ? 0 : this.level + 1)
+      else if (action.kind === 'step') {
+        const next = (Math.floor(this.level / 2) + 1) * 2
+        this.$emit('level', next > 20 ? 0 : next)
+      }
     }
   }
 }
