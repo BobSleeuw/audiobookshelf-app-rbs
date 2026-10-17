@@ -13,7 +13,7 @@
             <automock-screen :level="level" :boost-enabled="boostEnabled" :boost-style="boostStyle" :proposed="proposed" :chapter-progress="chapterProgress" :chapters-in-queue="chaptersInQueue" :covers="covers" @level="level = $event" />
           </div>
         </div>
-        <p v-if="boostStyle !== 'toggle' || proposed" class="text-xs mt-2" style="color: #f2b84b">Dashed yellow outline = new, not built yet.</p>
+        <p v-if="proposed" class="text-xs mt-2" style="color: #f2b84b">Dashed yellow outline = idea, not built yet.</p>
 
         <!-- the small media card on the car's dashboard -->
         <p class="uppercase text-xs font-semibold text-fg-muted mt-6 mb-2">The small card on the car's dashboard</p>
