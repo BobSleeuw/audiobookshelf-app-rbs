@@ -160,6 +160,23 @@ export default {
       }
     }
   },
+  watch: {
+    /**
+     * The server details / login are a step in the history, so the Android back gesture returns to the server list
+     * instead of leaving the page.
+     */
+    showForm(open) {
+      const inHistory = !!this.$route.query.view
+      if (open && !inHistory && this.serverConnectionConfigs.length) {
+        this.$router.push({ query: { view: 'details' } })
+      } else if (!open && inHistory) {
+        this.$router.back()
+      }
+    },
+    '$route.query.view'(view) {
+      if (!view && this.showForm && this.serverConnectionConfigs.length) this.showServerList()
+    }
+  },
   computed: {
     customHeadersCount() {
       return Object.keys(this.serverConfig.customHeaders || {}).length
@@ -609,7 +626,9 @@ export default {
     /** The page's back button: from the server details / login back to the server list. Returns false when there is nowhere to go inside the form. */
     goBack() {
       if (!this.showForm || !this.serverConnectionConfigs.length) return false
-      this.showServerList()
+      // Same as the back gesture: the details are a step in the browser history
+      if (this.$route.query.view) this.$router.back()
+      else this.showServerList()
       return true
     },
     showServerList() {
