@@ -77,9 +77,9 @@
         </ul>
 
         <p class="uppercase text-xs font-semibold text-fg-muted mt-6 mb-2">Why the book covers are missing</p>
-        <p class="text-sm">For books on your server, the car itself has to download the cover from your server. Your server is behind the Cloudflare headers, and the car cannot send those, so it gets nothing and shows grey. Downloaded books work because the app hands over the picture directly. For the small dashboard card, the car also cannot open the app's private file for the cover.</p>
-        <p class="text-sm mt-2"><b>Fix:</b> give the app its own small cover provider. The car asks the app for the cover, and the app fetches it with the headers (and caches it). That would fix the browse lists, the queue and the dashboard card in one go.</p>
-        <p class="text-xs text-fg-muted mt-2">This is my best explanation from reading the code; I cannot see the car, so I will check it with the logs after the fix.</p>
+        <p class="text-sm"><b>Dashboard card (best explanation so far).</b> The previous version of the app (Oct–Nov 2025) always sent the cover <i>address</i> to the car next to the picture. The current upstream code (mid 2026) drops the address once the picture is ready. The dashboard card probably only follows the address, so it went grey. A fix that puts the address back is written and <b>parked</b> (branch <code>parked/cover-art-uri-fix</code>), not in the app yet.</p>
+        <p class="text-sm mt-2"><b>Browse lists.</b> For books on your server the list entry is a web address the car downloads itself. It cannot send your Cloudflare headers, so these stay grey (the old version works the same way). If that has to change, the app would need its own small cover provider. Downloaded books work because the app hands over the picture.</p>
+        <p class="text-xs text-fg-muted mt-2">This is my best explanation from reading the code; I cannot see the car.</p>
       </div>
     </div>
   </div>

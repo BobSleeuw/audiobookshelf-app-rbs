@@ -107,6 +107,11 @@
             <div class="aa-btn" title="Next chapter" @click="currentChapter = Math.min(chapters.length - 1, currentChapter + 1)"><span class="material-symbols text-3xl">skip_next</span></div>
             <div v-for="action in actionsRight" :key="action.id" class="aa-btn" :class="[action.proposed ? 'aa-proposed' : '', action.wide ? 'aa-wide' : '']" @click="onAction(action)">
               <span v-if="action.text" class="text-sm font-semibold" :style="action.highlight ? 'color:#8ab4f8' : ''">{{ action.text }}</span>
+              <!-- the boost icon: a speaker with the level and "dB" under it -->
+              <span v-else-if="action.label" class="flex flex-col items-center leading-none">
+                <span class="material-symbols" style="font-size: 22px">{{ action.icon }}</span>
+                <span class="font-bold mt-0.5" style="font-size: 9px">{{ action.label }}</span>
+              </span>
               <span v-else class="material-symbols text-2xl">{{ action.icon }}</span>
             </div>
           </div>
@@ -175,7 +180,7 @@ export default {
         const on = this.boostActive && this.level > 0
         if (this.boostStyle === 'toggle') list.push({ id: 'boost', text: on ? '+' + this.level : 'Off', highlight: on, kind: 'toggle' })
         else if (this.boostStyle === 'plusminus') list.push({ id: 'minus', icon: 'remove', kind: 'minus', proposed: true }, { id: 'plus', icon: 'add', kind: 'plus', proposed: true })
-        else if (this.boostStyle === 'step') list.push({ id: 'step', text: this.level > 0 ? '+' + this.level : 'Off', highlight: this.level > 0, kind: 'step' })
+        else if (this.boostStyle === 'step') list.push({ id: 'step', icon: 'volume_up', label: this.level > 0 ? '+' + this.level + ' dB' : 'OFF', highlight: this.level > 0, kind: 'step' })
       }
       if (this.proposed) list.push({ id: 'bookmark', icon: 'bookmark_add', proposed: true })
       return list
