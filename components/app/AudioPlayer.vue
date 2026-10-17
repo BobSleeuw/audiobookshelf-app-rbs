@@ -16,6 +16,12 @@
         <span class="material-symbols text-3xl" :class="coverBgIsLight && theme !== 'black' ? 'text-black' : ''" @click="castClick">{{ isCasting ? 'cast_connected' : 'cast' }}</span>
       </div>
 
+      <!-- Playback history: places you were before a big jump -->
+      <div v-if="historyAvailable" class="top-6 absolute cursor-pointer" :class="showCastBtn ? 'right-28' : 'right-16'">
+        <span class="material-symbols text-3xl" :class="coverBgIsLight && theme !== 'black' ? 'text-black' : ''" @click="showHistoryModal = true">history</span>
+        <span v-if="historyEntries.length" class="absolute -top-1 -right-2 min-w-4 h-4 px-1 rounded-full bg-success text-white text-center" style="font-size: 10px; line-height: 16px">{{ historyEntries.length }}</span>
+      </div>
+
       <!-- Player options menu button -->
       <div class="top-6 right-4 absolute cursor-pointer">
         <span class="material-symbols text-3xl" :class="{ 'text-black text-opacity-75': coverBgIsLight && theme !== 'black' }" @click="showMoreMenuDialog = true">more_vert</span>
@@ -23,6 +29,12 @@
 
       <!-- Playback method indicator (Direct/Local/Transcode) -->
       <p class="top-4 absolute left-0 right-0 mx-auto text-center uppercase tracking-widest text-opacity-75 z-50" :class="{ 'text-black text-opacity-75': coverBgIsLight && theme !== 'black' }" style="font-size: 10px">{{ isDirectPlayMethod ? $strings.LabelPlaybackDirect : isLocalPlayMethod ? $strings.LabelPlaybackLocal : $strings.LabelPlaybackTranscode }}</p>
+    </div>
+
+    <!-- Right after a big jump: go back to where you were -->
+    <div v-if="historyBar && showFullscreen" class="absolute left-4 right-4 z-40 pointer-events-auto rounded-lg bg-secondary border border-fg/20 shadow-lg flex items-center px-4 py-3" style="top: 4.5rem">
+      <p class="flex-grow text-sm truncate">{{ $getString('LabelHistoryMovedTo', [$secondsToTimestamp(historyBar.to)]) }}</p>
+      <button type="button" class="text-success font-semibold text-sm pl-4 whitespace-nowrap" @click.stop="historyGoBack(historyBar)">{{ $getString('LabelHistoryGoBackTo', [$secondsToTimestamp(historyBar.from)]) }}</button>
     </div>
 
     <!-- Overall book progress bar -->
@@ -124,6 +136,7 @@
 
     <!-- Chapters modal - lists chapters for navigation -->
     <modals-chapters-modal v-model="showChapterModal" :current-chapter="currentChapter" :chapters="chapters" :playback-rate="currentPlaybackRate" @select="selectChapter" />
+    <modals-playback-history-modal v-model="showHistoryModal" :entries="historyEntries" :chapters="chapters" @select="historyGoBack" @clear="historyClear" />
     <!-- More menu dialog - player settings and options -->
     <modals-dialog v-model="showMoreMenuDialog" :items="menuItems" width="80vw" @action="clickMenuAction" />
   </div>
@@ -136,6 +149,7 @@ import { Dialog } from '@capacitor/dialog'
 import { getAverageColorFromCoverUrl } from '@/utils/coverAverageColor'
 import WrappingMarquee from '@/assets/WrappingMarquee.js'
 import jumpLabelMixin from '@/mixins/jumpLabel'
+import playbackHistoryMixin from '@/mixins/playbackHistory'
 
 export default {
   props: {
@@ -147,7 +161,7 @@ export default {
     sleepTimeRemaining: Number,
     serverLibraryItemId: String
   },
-  mixins: [jumpLabelMixin],
+  mixins: [jumpLabelMixin, playbackHistoryMixin],
   data() {
     return {
       windowHeight: 0,
@@ -450,6 +464,7 @@ export default {
     },
     async selectChapter(chapter) {
       await this.$hapticsImpact()
+      this.historyMarkReason(this.$strings.LabelHistoryReasonChapter, 'format_list_bulleted')
       this.seek(chapter.start)
       this.showChapterModal = false
     },
@@ -482,6 +497,7 @@ export default {
       await this.$hapticsImpact()
       if (this.showLoadingState) return
       if (!this.nextChapter) return
+      this.historyMarkReason(this.$strings.LabelHistoryReasonNextChapter, 'skip_next')
       this.seek(this.nextChapter.start)
     },
     async jumpChapterStart() {
@@ -492,6 +508,7 @@ export default {
       }
 
       // If 4 seconds or less into current chapter, then go to previous
+      this.historyMarkReason(this.$strings.LabelHistoryReasonChapter, 'skip_previous')
       if (this.currentTime - this.currentChapter.start <= 4) {
         const currChapterIndex = this.chapters.findIndex((ch) => Number(ch.start) <= this.currentTime && Number(ch.end) >= this.currentTime)
         if (currChapterIndex > 0) {
@@ -687,6 +704,7 @@ export default {
         var data = await AbsAudioPlayer.getCurrentTime()
         this.currentTime = Number(data.value.toFixed(2))
         this.bufferedTime = Number(data.bufferedTime.toFixed(2))
+        this.historyObserve(this.currentTime)
         this.timeupdate()
       }, 1000)
     },
@@ -723,6 +741,7 @@ export default {
 
       if (this.isDraggingCursor) {
         if (this.draggingCurrentTime !== this.currentTime) {
+          this.historyMarkReason(this.$strings.LabelHistoryReasonBar, 'linear_scale')
           this.seek(this.draggingCurrentTime)
         }
         this.isDraggingCursor = false
@@ -851,6 +870,7 @@ export default {
     onPlayingUpdate(data) {
       console.log('onPlayingUpdate', JSON.stringify(data))
       this.isPlaying = !!data.value
+      this.historyReset(this.currentTime) // pausing or resuming is not a jump
       this.$store.commit('setPlayerPlaying', this.isPlaying)
       if (this.isPlaying) {
         this.startPlayInterval()
@@ -875,12 +895,14 @@ export default {
 
       console.log('received metadata update', data)
 
+      this.historyObserve(this.currentTime)
       this.timeupdate()
     },
     // When a playback session is started the native android/ios will send the session
     onPlaybackSession(playbackSession) {
       console.log('onPlaybackSession received', JSON.stringify(playbackSession))
       this.playbackSession = playbackSession
+      this.historyNewSession()
 
       this.isEnded = false
       this.isLoading = true
@@ -912,6 +934,8 @@ export default {
     },
     async init() {
       await this.loadPlayerSettings()
+      await this.loadHistorySettings()
+      this.$eventBus.$on('playback-history-settings', this.onHistorySettingsChanged)
 
       AbsAudioPlayer.addListener('onPlaybackSession', this.onPlaybackSession)
       AbsAudioPlayer.addListener('onPlaybackClosed', this.onPlaybackClosed)

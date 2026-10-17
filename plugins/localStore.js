@@ -144,6 +144,45 @@ class LocalStorage {
     }
   }
 
+  /** Settings of the playback history (go back to a previous position after a big jump) */
+  async getPlaybackHistorySettings() {
+    const defaults = { enabled: true, minSeconds: 60, showBar: true }
+    try {
+      const value = await this.getPreferenceByKey('playbackHistorySettings')
+      return value ? { ...defaults, ...JSON.parse(value) } : defaults
+    } catch (error) {
+      console.error('[LocalStorage] Failed to get playback history settings', error)
+      return defaults
+    }
+  }
+
+  async setPlaybackHistorySettings(settings) {
+    try {
+      await Preferences.set({ key: 'playbackHistorySettings', value: JSON.stringify(settings) })
+    } catch (error) {
+      console.error('[LocalStorage] Failed to set playback history settings', error)
+    }
+  }
+
+  /** The places you were before a big jump in one book (newest first) */
+  async getPlaybackHistory(mediaId) {
+    try {
+      const value = await this.getPreferenceByKey(`playbackHistory_${mediaId}`)
+      return value ? JSON.parse(value) : []
+    } catch (error) {
+      console.error('[LocalStorage] Failed to get playback history', error)
+      return []
+    }
+  }
+
+  async setPlaybackHistory(mediaId, entries) {
+    try {
+      await Preferences.set({ key: `playbackHistory_${mediaId}`, value: JSON.stringify(entries) })
+    } catch (error) {
+      console.error('[LocalStorage] Failed to set playback history', error)
+    }
+  }
+
   /**
    * Get preference value by key
    * 

@@ -118,6 +118,7 @@ export default {
         androidAutoVolumeBoostDb: 0,
         maxBoostDb: 15
       },
+      history: { enabled: true, minSeconds: 60, showBar: true },
       bluetooth: { loading: false, loaded: false, granted: false, devices: [] },
       theme: 'dark',
       lockCurrentOrientation: false
@@ -176,6 +177,13 @@ export default {
         { text: this.$strings.LabelNever, value: 'NEVER' }
       ]
     },
+    historyMinItems() {
+      return [
+        { text: '30 s', value: 30 },
+        { text: '1 min', value: 60 },
+        { text: '5 min', value: 300 }
+      ]
+    },
     progressModeItems() {
       return [
         { text: this.$strings.LabelChapterTrack, value: 'CHAPTER' },
@@ -221,6 +229,9 @@ export default {
         mp3Seeking: s.enableMp3IndexSeeking,
         mediaSeeking: s.allowSeekingOnMediaControls,
         progressMode: this.rbs.progressMode,
+        historyEnabled: this.history.enabled,
+        historyMin: this.history.minSeconds,
+        historyBar: this.history.showBar,
         autoProgressMode: this.rbs.androidAutoProgressMode,
         boostEnabled: this.rbs.volumeBoostEnabled,
         volumeBoost: this.rbs.volumeBoostDb,
@@ -288,6 +299,9 @@ export default {
             { id: 'mp3Seeking', type: 'toggle', label: s.LabelEnableMp3IndexSeeking, android: true },
             { id: 'mediaSeeking', type: 'toggle', label: s.LabelAllowSeekingOnMediaControls },
             { id: 'progressMode', type: 'select', label: s.LabelProgressInNotification, options: this.progressModeItems, android: true },
+            { id: 'historyEnabled', type: 'toggle', label: s.LabelPlaybackHistory, dividerBefore: true },
+            { id: 'historyMin', type: 'select', label: s.LabelHistoryIgnoreShorterThan, options: this.historyMinItems, showIf: ['historyEnabled'] },
+            { id: 'historyBar', type: 'toggle', label: s.LabelHistoryShowGoBackBar, showIf: ['historyEnabled'] },
             { id: 'boostEnabled', type: 'toggle', label: s.LabelVolumeBoost, dividerBefore: true, android: true },
             { id: 'volumeBoost', type: 'slider', label: s.LabelBoostLevel, min: 0, max: this.rbs.maxBoostDb, unit: ' dB', showIf: ['boostEnabled'], android: true },
             { id: 'autoBoost', type: 'slider', label: s.LabelBoostLevelAndroidAuto, min: 0, max: this.rbs.maxBoostDb, unit: ' dB', showIf: ['boostEnabled'], android: true }
@@ -460,6 +474,12 @@ export default {
         case 'mediaSeeking':
           s.allowSeekingOnMediaControls = value
           break
+        case 'historyEnabled':
+          return this.saveHistorySetting('enabled', value)
+        case 'historyMin':
+          return this.saveHistorySetting('minSeconds', value)
+        case 'historyBar':
+          return this.saveHistorySetting('showBar', value)
         case 'progressMode':
           this.rbs.progressMode = value
           return this.saveRbsSetting('progressMode', value)
@@ -537,6 +557,12 @@ export default {
       await this.saveRbsSetting('volumeBoostEnabled', enabled)
     },
 
+    /** Playback history settings live on the phone; the player is told right away */
+    async saveHistorySetting(key, value) {
+      this.history = { ...this.history, [key]: value }
+      await this.$localStore.setPlaybackHistorySettings(this.history)
+      this.$eventBus.$emit('playback-history-settings', this.history)
+    },
     async saveRbsSetting(key, value) {
       try {
         await AbsRbsSettings.setSetting({ key, value })
@@ -695,6 +721,7 @@ export default {
     async init() {
       this.loading = true
       this.theme = (await this.$localStore.getTheme()) || 'dark'
+      this.history = await this.$localStore.getPlaybackHistorySettings()
       this.deviceData = await this.$db.getDeviceData()
       this.$store.commit('setDeviceData', this.deviceData)
       this.setDeviceSettings()
