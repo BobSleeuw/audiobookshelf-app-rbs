@@ -11,7 +11,9 @@ object RbsSettingsStore {
   const val KEY_BLUETOOTH_DELAY = "bluetoothDelaySeconds"
   const val KEY_VOLUME_BOOST = "volumeBoostDb"
   const val KEY_ANDROID_AUTO_BOOST = "androidAutoVolumeBoostDb"
-  const val KEY_ANDROID_AUTO_BOOST_ACTIVE = "androidAutoBoostActive"
+  const val KEY_ANDROID_AUTO_QUEUE_MODE = "androidAutoQueueMode"
+  const val QUEUE_CHAPTERS = "CHAPTERS"
+  const val QUEUE_FILES = "FILES"
   const val KEY_PROGRESS_MODE = "progressMode"
   const val KEY_ANDROID_AUTO_PROGRESS_MODE = "androidAutoProgressMode"
   const val PROGRESS_CHAPTER = "CHAPTER"
@@ -45,8 +47,8 @@ object RbsSettingsStore {
   /** Master switch for Bluetooth auto play; the per device toggles are kept when it is off. */
   fun bluetoothAutoPlayEnabled(ctx: Context): Boolean = prefs(ctx).getBoolean(KEY_BLUETOOTH_ENABLED, true)
 
-  /** The Android Auto boost button switches the boost on and off; the level itself is set in the app. */
-  fun androidAutoBoostActive(ctx: Context): Boolean = prefs(ctx).getBoolean(KEY_ANDROID_AUTO_BOOST_ACTIVE, true)
+  /** What Android Auto lists behind its Queue button: the chapters or the files. */
+  fun androidAutoQueueMode(ctx: Context): String = prefs(ctx).getString(KEY_ANDROID_AUTO_QUEUE_MODE, QUEUE_CHAPTERS) ?: QUEUE_CHAPTERS
 
   /** What the notification shows as progress: the current chapter or the whole book. */
   fun progressMode(ctx: Context): String = prefs(ctx).getString(KEY_PROGRESS_MODE, PROGRESS_CHAPTER) ?: PROGRESS_CHAPTER

@@ -338,7 +338,7 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
         MediaMetadataCompat.Builder(metadata).putLong(MediaMetadataCompat.METADATA_KEY_DURATION, chapterRange.second - chapterRange.first).build()
       }
     }
-    val queueNavigator: TimelineQueueNavigator =
+    val timelineNavigator: TimelineQueueNavigator =
             object : TimelineQueueNavigator(mediaSession) {
               override fun getSupportedQueueNavigatorActions(player: Player): Long {
                 var actions = PlaybackStateCompat.ACTION_PLAY_PAUSE or
@@ -417,7 +417,7 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
             }
 
     setMediaSessionConnectorPlaybackActions()
-    mediaSessionConnector.setQueueNavigator(queueNavigator)
+    mediaSessionConnector.setQueueNavigator(ChapterQueueNavigator(mediaSession, timelineNavigator, this))
     mediaSessionConnector.setPlaybackPreparer(MediaSessionPlaybackPreparer(this))
 
     mediaSession.setCallback(MediaSessionCallback(this))
@@ -477,6 +477,7 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
       Handler(Looper.getMainLooper()).post {
         try {
           mediaSessionConnector.invalidateMediaSessionMetadata()
+          mediaSessionConnector.invalidateMediaSessionQueue()
           mediaSessionConnector.invalidateMediaSessionPlaybackState()
           notifyChildrenChanged(AUTO_MEDIA_ROOT)
         } catch (e: Exception) {
@@ -559,6 +560,7 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
               mediaSessionConnector.invalidateMediaSessionMetadata()
             }
     mediaSessionConnector.invalidateMediaSessionMetadata()
+    mediaSessionConnector.invalidateMediaSessionQueue()
 
     AbsLogger.info("PlayerNotificationService", "preparePlayer: Started playback session for item ${currentPlaybackSession?.mediaItemId}. MediaPlayer ${currentPlaybackSession?.mediaPlayer}")
     // Notify client
@@ -891,6 +893,46 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
   }
 
   fun getBufferedTimeMs(): Long = getBufferedTime()
+
+  /** True when the Android Auto queue lists the chapters (setting) and the book has chapters. */
+  fun chapterQueueActive(): Boolean {
+    return RbsSettingsStore.androidAutoQueueMode(ctx) == RbsSettingsStore.QUEUE_CHAPTERS && currentPlaybackSession?.chapters?.isNotEmpty() == true
+  }
+
+  /** Index of the chapter that is playing now (0 when unknown). */
+  fun currentChapterIndex(): Int {
+    val session = currentPlaybackSession ?: return 0
+    val chapter = session.getChapterForTime(getCurrentTime()) ?: return 0
+    return session.chapters.indexOf(chapter).coerceAtLeast(0)
+  }
+
+  /** The chapters as queue entries for Android Auto. */
+  fun chapterQueueItems(): List<MediaSessionCompat.QueueItem> {
+    val chapters = currentPlaybackSession?.chapters ?: return emptyList()
+    return chapters.mapIndexed { index, chapter ->
+      val totalSeconds = (chapter.startMs / 1000).toInt()
+      val hours = totalSeconds / 3600
+      val minutes = (totalSeconds % 3600) / 60
+      val seconds = totalSeconds % 60
+      val start = if (hours > 0) String.format("%d:%02d:%02d", hours, minutes, seconds) else String.format("%d:%02d", minutes, seconds)
+      val description = MediaDescriptionCompat.Builder()
+        .setMediaId("chapter-$index")
+        .setTitle(chapter.title ?: "Chapter ${index + 1}")
+        .setSubtitle(start)
+        .build()
+      MediaSessionCompat.QueueItem(description, index.toLong())
+    }
+  }
+
+  fun skipToChapter(index: Int) {
+    val chapter = currentPlaybackSession?.chapters?.getOrNull(index) ?: return
+    seekPlayer(chapter.startMs)
+  }
+
+  /** An entry of the Android Auto queue was tapped. */
+  fun skipToQueueItem(id: Long) {
+    if (chapterQueueActive()) skipToChapter(id.toInt()) else currentPlayer.seekTo(id.toInt(), 0)
+  }
 
   fun getCurrentTime(): Long {
     return currentPlayer.currentPosition + getCurrentTrackStartOffsetMs()
@@ -2389,11 +2431,10 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
 
     override fun getCustomAction(player: Player): PlaybackStateCompat.CustomAction? {
       if (!RbsSettingsStore.volumeBoostEnabled(getContext())) return null
-      // One button that switches the boost on and off; the level is set in the app settings
+      // One button: each tap raises the boost by 2 dB, after +20 it is off again (the level is also a slider in the app)
       val level = RbsSettingsStore.androidAutoBoostDb(getContext())
-      val active = RbsSettingsStore.androidAutoBoostActive(getContext()) && level > 0
-      val label = if (active) "Volume boost +$level dB (tap to turn off)" else "Volume boost off (tap to turn on)"
-      return PlaybackStateCompat.CustomAction.Builder(CUSTOM_ACTION_CHANGE_BOOST, label, boostIcon(if (active) level else 0)).build()
+      val label = if (level > 0) "Volume boost +$level dB (tap for more)" else "Volume boost off (tap to turn on)"
+      return PlaybackStateCompat.CustomAction.Builder(CUSTOM_ACTION_CHANGE_BOOST, label, boostIcon(level)).build()
     }
   }
 

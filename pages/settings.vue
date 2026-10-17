@@ -108,6 +108,7 @@ export default {
       rbs: {
         progressMode: 'CHAPTER',
         androidAutoProgressMode: 'CHAPTER',
+        androidAutoQueueMode: 'CHAPTERS',
         bluetoothAutoPlayEnabled: true,
         bluetoothStartWhenClosed: true,
         bluetoothDelaySeconds: 5,
@@ -177,6 +178,12 @@ export default {
         { text: this.$strings.LabelNever, value: 'NEVER' }
       ]
     },
+    queueModeItems() {
+      return [
+        { text: this.$strings.LabelChapters, value: 'CHAPTERS' },
+        { text: this.$strings.LabelFiles, value: 'FILES' }
+      ]
+    },
     historyMinItems() {
       return [
         { text: '30 s', value: 30 },
@@ -233,6 +240,7 @@ export default {
         historyMin: this.history.minSeconds,
         historyBar: this.history.showBar,
         autoProgressMode: this.rbs.androidAutoProgressMode,
+        autoQueueMode: this.rbs.androidAutoQueueMode,
         boostEnabled: this.rbs.volumeBoostEnabled,
         volumeBoost: this.rbs.volumeBoostDb,
         autoBoost: this.rbs.androidAutoVolumeBoostDb,
@@ -281,6 +289,7 @@ export default {
             { id: 'btBackground', type: 'toggle', label: s.LabelStartWhenAppClosed, disabled: !this.rbs.ignoringBatteryOptimizations, buttonText: s.ButtonGrantPermission, showIf: ['btAuto'], android: true },
             { id: 'btDevices', type: 'devices', label: s.LabelAutoPlayDevices, loading: this.bluetooth.loading, granted: this.bluetooth.granted, devices: this.bluetooth.devices, showIf: ['btAuto'], android: true },
             { id: 'autoProgressMode', type: 'select', label: s.LabelProgressBar, headingBefore: s.LabelAndroidAuto, options: this.progressModeItems, android: true },
+            { id: 'autoQueueMode', type: 'select', label: s.LabelAndroidAutoQueue, options: this.queueModeItems, android: true },
             { id: 'autoBrowseLimit', type: 'select', label: s.LabelGroupByLetterAbove, options: this.browseLimitItems, android: true },
             { id: 'autoSeriesOrder', type: 'select', label: s.LabelSeriesBookOrder, options: this.seriesOrderItems, android: true },
             { id: 'downloadCellular', type: 'select', label: s.LabelDownloadUsingCellular, headingBefore: s.LabelMobileData, options: this.cellularItems },
@@ -483,6 +492,9 @@ export default {
         case 'progressMode':
           this.rbs.progressMode = value
           return this.saveRbsSetting('progressMode', value)
+        case 'autoQueueMode':
+          this.rbs.androidAutoQueueMode = value
+          return this.saveRbsSetting('androidAutoQueueMode', value)
         case 'autoProgressMode':
           this.rbs.androidAutoProgressMode = value
           return this.saveRbsSetting('androidAutoProgressMode', value)
@@ -577,6 +589,7 @@ export default {
         this.rbs = {
           progressMode: settings.progressMode || 'CHAPTER',
           androidAutoProgressMode: settings.androidAutoProgressMode || 'CHAPTER',
+          androidAutoQueueMode: settings.androidAutoQueueMode || 'CHAPTERS',
           bluetoothAutoPlayEnabled: settings.bluetoothAutoPlayEnabled !== false,
           bluetoothStartWhenClosed: settings.bluetoothStartWhenClosed !== false,
           bluetoothDelaySeconds: settings.bluetoothDelaySeconds,

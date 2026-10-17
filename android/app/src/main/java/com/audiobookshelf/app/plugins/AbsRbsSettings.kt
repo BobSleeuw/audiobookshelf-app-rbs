@@ -73,6 +73,7 @@ class AbsRbsSettings : Plugin() {
       .put("bluetoothAutoPlayEnabled", RbsSettingsStore.bluetoothAutoPlayEnabled(context))
       .put("bluetoothStartWhenClosed", RbsSettingsStore.bluetoothStartWhenClosed(context))
       .put("progressMode", RbsSettingsStore.progressMode(context))
+      .put("androidAutoQueueMode", RbsSettingsStore.androidAutoQueueMode(context))
       .put("androidAutoProgressMode", RbsSettingsStore.androidAutoProgressMode(context))
       .put("maxBoostDb", RbsSettingsStore.MAX_BOOST_DB)
       .put("maxBluetoothDelaySeconds", RbsSettingsStore.MAX_BLUETOOTH_DELAY_SECONDS)
@@ -97,6 +98,17 @@ class AbsRbsSettings : Plugin() {
       }
       RbsSettingsStore.setBoolean(context, key, flag)
       if (key == RbsSettingsStore.KEY_BOOST_ENABLED) VolumeBooster.apply()
+      call.resolve(settingsObject())
+      return
+    }
+    if (key == RbsSettingsStore.KEY_ANDROID_AUTO_QUEUE_MODE) {
+      val mode = call.getString("value")
+      if (mode != RbsSettingsStore.QUEUE_CHAPTERS && mode != RbsSettingsStore.QUEUE_FILES) {
+        call.reject("invalid queue mode")
+        return
+      }
+      RbsSettingsStore.setString(context, key, mode)
+      VolumeBooster.onChanged?.invoke() // refreshes the queue Android Auto shows
       call.resolve(settingsObject())
       return
     }

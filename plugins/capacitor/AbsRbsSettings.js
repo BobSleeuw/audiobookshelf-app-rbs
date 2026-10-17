@@ -18,6 +18,7 @@ class AbsRbsSettingsWeb extends WebPlugin {
     return {
       progressMode: 'CHAPTER',
       androidAutoProgressMode: 'CHAPTER',
+      androidAutoQueueMode: 'CHAPTERS',
       bluetoothAutoPlayEnabled: true,
       bluetoothStartWhenClosed: true,
       bluetoothDelaySeconds: 5,

@@ -35,7 +35,7 @@ object VolumeBooster {
   var projectionBrowsing = false
 
   /** Selectable boost levels (dB) for the Android Auto menu and button; each has an icon ic_boost_<index>. */
-  val LEVELS = listOf(0, 3, 6, 9, 12, 15)
+  val LEVELS = (0..20 step 2).toList()
 
   /** Called after a boost setting or the car connection changed, so UIs (Android Auto) can refresh. */
   @Volatile
@@ -50,24 +50,17 @@ object VolumeBooster {
     apply()
   }
 
-  /** The Android Auto button: switches the boost on or off. The level is set with the slider in the app. */
-  fun toggleAndroidAutoBoost(ctx: Context) {
-    val active = !RbsSettingsStore.androidAutoBoostActive(ctx)
-    RbsSettingsStore.setBoolean(ctx, RbsSettingsStore.KEY_ANDROID_AUTO_BOOST_ACTIVE, active)
-    // Switching it on with the level at zero would do nothing
-    if (active && RbsSettingsStore.androidAutoBoostDb(ctx) == 0) {
-      RbsSettingsStore.setInt(ctx, RbsSettingsStore.KEY_ANDROID_AUTO_BOOST, 6)
-    }
-    apply()
+  /** The Android Auto button: each tap raises the boost by 2 dB, after the maximum it goes back to off. */
+  fun stepAndroidAutoBoost(ctx: Context) {
+    val level = RbsSettingsStore.androidAutoBoostDb(ctx)
+    val next = (level / 2 + 1) * 2
+    setAndroidAutoBoost(ctx, if (next > RbsSettingsStore.MAX_BOOST_DB) 0 else next)
   }
 
   /** Gain in dB currently requested for the active connection type. */
   fun currentBoostDb(ctx: Context): Int {
     if (!RbsSettingsStore.volumeBoostEnabled(ctx)) return 0
-    if (carConnected) {
-      return if (RbsSettingsStore.androidAutoBoostActive(ctx)) RbsSettingsStore.androidAutoBoostDb(ctx) else 0
-    }
-    return RbsSettingsStore.volumeBoostDb(ctx)
+    return if (carConnected) RbsSettingsStore.androidAutoBoostDb(ctx) else RbsSettingsStore.volumeBoostDb(ctx)
   }
 
   /** Attaches to the audio session of the player. Call again whenever the session id changes. */
