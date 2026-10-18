@@ -91,7 +91,7 @@ export default {
       if (!this.isLocal) return this.libraryItem.id
       // Check if local library item is connected to the current server
       if (!this.libraryItem.serverAddress || !this.libraryItem.libraryItemId) return null
-      if (this.$store.getters['user/getServerAddress'] === this.libraryItem.serverAddress) {
+      if (this.$store.getters['user/isSameServer'](this.libraryItem)) {
         return this.libraryItem.libraryItemId
       }
       return null

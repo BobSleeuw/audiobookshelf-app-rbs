@@ -408,7 +408,7 @@
   "MessageLocalFolderDescription": "'Internal App Storage' is only accessible by this app. This app only supports media downloaded directly through the app. Shared storage folders can be used to allow other apps to access media downloaded by this app.",
   "MessageLocationPermissionNeeded": "Android needs the location permission to read the Wi-Fi name.",
   "MessageMarkAsFinished": "Mark as Finished",
-  "MessageMediaLinkedToADifferentServer": "Media is linked to an Audiobookshelf server on a different address ({0}). Progress will be synced when connected to this server address.",
+  "MessageMediaLinkedToADifferentServer": "Media is linked to a different Audiobookshelf server ({0}). Progress will be synced when connected to that server.",
   "MessageMediaLinkedToADifferentUser": "Media is linked to this server but was downloaded by a different user. Progress will only be synced to the user that downloaded it.",
   "MessageMediaLinkedToServer": "Linked to server {0}",
   "MessageMediaLinkedToThisServer": "Downloaded media is linked to this server",

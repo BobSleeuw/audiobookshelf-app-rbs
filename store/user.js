@@ -31,6 +31,20 @@ export const getters = {
   getServerAddress: (state) => {
     return state.serverConnectionConfig?.address || null
   },
+  /**
+   * True when a downloaded item (local library item) belongs to the server that is connected now.
+   * A server can have an internal and an external address and the app switches between them, so the saved
+   * address is compared with both, and the server entry in the server list is compared as well.
+   */
+  isSameServer: (state) => (item) => {
+    const config = state.serverConnectionConfig
+    if (!item || !config) return false
+    if (item.serverConnectionConfigId && item.serverConnectionConfigId === config.id) return true
+    const normalize = (address) => (address || '').trim().replace(/\/+$/, '').toLowerCase()
+    const saved = normalize(item.serverAddress)
+    if (!saved) return false
+    return [config.address, config.remoteAddress, config.localAddress].some((address) => normalize(address) === saved)
+  },
   getServerConfigName: (state) => {
     return state.serverConnectionConfig?.name || null
   },
