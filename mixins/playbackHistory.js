@@ -10,7 +10,7 @@ const BAR_SECONDS = 7
 export default {
   data() {
     return {
-      historySettings: { enabled: true, minSeconds: 60, showBar: true },
+      historySettings: { enabled: true, minSeconds: 60, showBar: true, showBadge: true },
       historyEntries: [],
       historyBar: null,
       showHistoryModal: false,

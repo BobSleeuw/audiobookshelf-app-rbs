@@ -212,6 +212,7 @@
   "LabelHistoryReasonNextChapter": "Skipped to the next chapter",
   "LabelHistoryReasonOther": "Jumped in the book",
   "LabelHistoryReasonUndo": "Went back in history",
+  "LabelHistoryShowCount": "Show the number of places on the history button",
   "LabelHistoryShowGoBackBar": "Show a \"go back\" bar after a jump",
   "LabelHomeNetworkSsids": "Home network Wi-Fi SSID(s)",
   "LabelHost": "Host",

@@ -146,7 +146,7 @@ class LocalStorage {
 
   /** Settings of the playback history (go back to a previous position after a big jump) */
   async getPlaybackHistorySettings() {
-    const defaults = { enabled: true, minSeconds: 60, showBar: true }
+    const defaults = { enabled: true, minSeconds: 60, showBar: true, showBadge: true }
     try {
       const value = await this.getPreferenceByKey('playbackHistorySettings')
       return value ? { ...defaults, ...JSON.parse(value) } : defaults

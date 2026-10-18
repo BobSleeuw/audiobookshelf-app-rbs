@@ -19,7 +19,7 @@
       <!-- Playback history: places you were before a big jump -->
       <div v-if="historyAvailable" class="top-6 absolute cursor-pointer" :class="showCastBtn ? 'right-28' : 'right-16'">
         <span class="material-symbols text-3xl" :class="coverBgIsLight && theme !== 'black' ? 'text-black' : ''" @click="showHistoryModal = true">history</span>
-        <span v-if="historyEntries.length" class="absolute -top-1 -right-2 min-w-4 h-4 px-1 rounded-full bg-success text-white text-center" style="font-size: 10px; line-height: 16px">{{ historyEntries.length }}</span>
+        <span v-if="historyEntries.length && historySettings.showBadge" class="absolute -top-1 -right-2 min-w-4 h-4 px-1 rounded-full bg-success text-white text-center" style="font-size: 10px; line-height: 16px">{{ historyEntries.length }}</span>
       </div>
 
       <!-- Player options menu button -->

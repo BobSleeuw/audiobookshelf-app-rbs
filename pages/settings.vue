@@ -119,7 +119,7 @@ export default {
         androidAutoVolumeBoostDb: 0,
         maxBoostDb: 20
       },
-      history: { enabled: true, minSeconds: 60, showBar: true },
+      history: { enabled: true, minSeconds: 60, showBar: true, showBadge: true },
       bluetooth: { loading: false, loaded: false, granted: false, devices: [] },
       theme: 'dark',
       lockCurrentOrientation: false
@@ -239,6 +239,7 @@ export default {
         historyEnabled: this.history.enabled,
         historyMin: this.history.minSeconds,
         historyBar: this.history.showBar,
+        historyBadge: this.history.showBadge,
         autoProgressMode: this.rbs.androidAutoProgressMode,
         autoQueueMode: this.rbs.androidAutoQueueMode,
         boostEnabled: this.rbs.volumeBoostEnabled,
@@ -311,6 +312,7 @@ export default {
             { id: 'historyEnabled', type: 'toggle', label: s.LabelPlaybackHistory, dividerBefore: true },
             { id: 'historyMin', type: 'select', label: s.LabelHistoryIgnoreShorterThan, options: this.historyMinItems, showIf: ['historyEnabled'] },
             { id: 'historyBar', type: 'toggle', label: s.LabelHistoryShowGoBackBar, showIf: ['historyEnabled'] },
+            { id: 'historyBadge', type: 'toggle', label: s.LabelHistoryShowCount, showIf: ['historyEnabled'] },
             { id: 'boostEnabled', type: 'toggle', label: s.LabelVolumeBoost, dividerBefore: true, android: true },
             { id: 'volumeBoost', type: 'slider', label: s.LabelBoostLevel, min: 0, max: this.rbs.maxBoostDb, unit: ' dB', showIf: ['boostEnabled'], android: true },
             { id: 'autoBoost', type: 'slider', label: s.LabelBoostLevelAndroidAuto, min: 0, max: this.rbs.maxBoostDb, unit: ' dB', showIf: ['boostEnabled'], android: true }
@@ -489,6 +491,8 @@ export default {
           return this.saveHistorySetting('minSeconds', value)
         case 'historyBar':
           return this.saveHistorySetting('showBar', value)
+        case 'historyBadge':
+          return this.saveHistorySetting('showBadge', value)
         case 'progressMode':
           this.rbs.progressMode = value
           return this.saveRbsSetting('progressMode', value)
