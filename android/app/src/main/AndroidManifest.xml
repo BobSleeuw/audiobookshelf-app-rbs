@@ -126,6 +126,12 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
+        <!-- ABS-RBS (aa-cover-art): cover art for Android Auto, covers and author pictures only -->
+        <provider
+          android:name=".media.CoverProvider"
+          android:authorities="${applicationId}.covers"
+          android:exported="true" />
+
         <provider
           android:name="androidx.core.content.FileProvider"
           android:authorities="${applicationId}.fileprovider"

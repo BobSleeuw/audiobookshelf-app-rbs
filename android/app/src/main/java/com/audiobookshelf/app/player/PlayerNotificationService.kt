@@ -410,7 +410,7 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
                                 .setTitle(currentPlaybackSession!!.displayTitle)
 
                 bitmap?.let { mediaDescriptionBuilder.setIconBitmap(it) }
-                  ?: mediaDescriptionBuilder.setIconUri(coverUri)
+                  ?: mediaDescriptionBuilder.setIconUri(currentPlaybackSession!!.getCarCoverUri(ctx))
 
                 return mediaDescriptionBuilder.build()
               }

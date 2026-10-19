@@ -184,7 +184,7 @@ class LocalLibraryItem(
     val mediaDescriptionBuilder = MediaDescriptionCompat.Builder()
       .setMediaId(id)
       .setTitle(title)
-      .setIconUri(coverUri)
+      .setIconUri(if (coverContentUrl != null) com.audiobookshelf.app.media.CoverProvider.localItemUri(id) else coverUri)
       .setSubtitle(authorName)
       .setExtras(extras)
 
