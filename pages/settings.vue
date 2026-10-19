@@ -108,6 +108,8 @@ export default {
       rbs: {
         progressMode: 'CHAPTER',
         androidAutoProgressMode: 'CHAPTER',
+        skipSilenceEnabled: false,
+        skipSilenceMaxMs: 500,
         androidAutoQueueMode: 'CHAPTERS',
         bluetoothAutoPlayEnabled: true,
         bluetoothStartWhenClosed: true,
@@ -184,6 +186,9 @@ export default {
         { text: this.$strings.LabelFiles, value: 'FILES' }
       ]
     },
+    skipSilenceItems() {
+      return [100, 200, 300, 400, 500, 600, 700, 800, 900].map((value) => ({ text: `${value / 1000} s`, tick: String(value / 1000), value }))
+    },
     historyMinItems() {
       return [15, 30, 60, 120, 300].map((value) => ({ text: this.getJumpLabel(value), value }))
     },
@@ -232,6 +237,8 @@ export default {
         mp3Seeking: s.enableMp3IndexSeeking,
         mediaSeeking: s.allowSeekingOnMediaControls,
         progressMode: this.rbs.progressMode,
+        skipSilence: this.rbs.skipSilenceEnabled,
+        skipSilenceMax: this.rbs.skipSilenceMaxMs,
         historyEnabled: this.history.enabled,
         historyMin: this.history.minSeconds,
         historyBar: this.history.showBar,
@@ -305,6 +312,8 @@ export default {
             { id: 'mp3Seeking', type: 'toggle', label: s.LabelEnableMp3IndexSeeking, android: true },
             { id: 'mediaSeeking', type: 'toggle', label: s.LabelAllowSeekingOnMediaControls },
             { id: 'progressMode', type: 'select', label: s.LabelProgressInNotification, options: this.progressModeItems, android: true },
+            { id: 'skipSilence', type: 'toggle', label: s.LabelSkipSilence, dividerBefore: true, android: true },
+            { id: 'skipSilenceMax', type: 'steps', label: s.LabelSkipSilenceLongestPause, options: this.skipSilenceItems, showIf: ['skipSilence'], android: true },
             { id: 'historyEnabled', type: 'toggle', label: s.LabelPlaybackHistory, dividerBefore: true },
             { id: 'historyMin', type: 'steps', label: s.LabelHistoryIgnoreShorterThan, options: this.historyMinItems, showIf: ['historyEnabled'] },
             { id: 'historyBar', type: 'toggle', label: s.LabelHistoryShowGoBackBar, showIf: ['historyEnabled'] },
@@ -481,6 +490,12 @@ export default {
         case 'mediaSeeking':
           s.allowSeekingOnMediaControls = value
           break
+        case 'skipSilence':
+          this.rbs.skipSilenceEnabled = value
+          return this.saveRbsSetting('skipSilenceEnabled', value)
+        case 'skipSilenceMax':
+          this.rbs.skipSilenceMaxMs = value
+          return this.saveRbsSetting('skipSilenceMaxMs', value)
         case 'historyEnabled':
           return this.saveHistorySetting('enabled', value)
         case 'historyMin':
@@ -589,6 +604,8 @@ export default {
         this.rbs = {
           progressMode: settings.progressMode || 'CHAPTER',
           androidAutoProgressMode: settings.androidAutoProgressMode || 'CHAPTER',
+          skipSilenceEnabled: !!settings.skipSilenceEnabled,
+          skipSilenceMaxMs: settings.skipSilenceMaxMs || 500,
           androidAutoQueueMode: settings.androidAutoQueueMode || 'CHAPTERS',
           bluetoothAutoPlayEnabled: settings.bluetoothAutoPlayEnabled !== false,
           bluetoothStartWhenClosed: settings.bluetoothStartWhenClosed !== false,

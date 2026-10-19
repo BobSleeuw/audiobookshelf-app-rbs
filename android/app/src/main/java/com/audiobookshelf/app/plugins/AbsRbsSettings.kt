@@ -12,6 +12,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import com.audiobookshelf.app.player.PlayerNotificationService
 import com.audiobookshelf.app.player.VolumeBooster
 import com.audiobookshelf.app.settings.RbsSettingsStore
 import com.getcapacitor.JSObject
@@ -73,6 +74,8 @@ class AbsRbsSettings : Plugin() {
       .put("bluetoothAutoPlayEnabled", RbsSettingsStore.bluetoothAutoPlayEnabled(context))
       .put("bluetoothStartWhenClosed", RbsSettingsStore.bluetoothStartWhenClosed(context))
       .put("progressMode", RbsSettingsStore.progressMode(context))
+      .put("skipSilenceEnabled", RbsSettingsStore.skipSilenceEnabled(context))
+      .put("skipSilenceMaxMs", RbsSettingsStore.skipSilenceMaxMs(context))
       .put("androidAutoQueueMode", RbsSettingsStore.androidAutoQueueMode(context))
       .put("androidAutoProgressMode", RbsSettingsStore.androidAutoProgressMode(context))
       .put("maxBoostDb", RbsSettingsStore.MAX_BOOST_DB)
@@ -90,7 +93,7 @@ class AbsRbsSettings : Plugin() {
   @PluginMethod
   fun setSetting(call: PluginCall) {
     val key = call.getString("key")
-    if (key == RbsSettingsStore.KEY_BOOST_ENABLED || key == RbsSettingsStore.KEY_BLUETOOTH_ENABLED || key == RbsSettingsStore.KEY_BLUETOOTH_START_WHEN_CLOSED) {
+    if (key == RbsSettingsStore.KEY_BOOST_ENABLED || key == RbsSettingsStore.KEY_BLUETOOTH_ENABLED || key == RbsSettingsStore.KEY_BLUETOOTH_START_WHEN_CLOSED || key == RbsSettingsStore.KEY_SKIP_SILENCE) {
       val flag = call.getBoolean("value")
       if (flag == null) {
         call.reject("value required")
@@ -98,6 +101,7 @@ class AbsRbsSettings : Plugin() {
       }
       RbsSettingsStore.setBoolean(context, key, flag)
       if (key == RbsSettingsStore.KEY_BOOST_ENABLED) VolumeBooster.apply()
+      if (key == RbsSettingsStore.KEY_SKIP_SILENCE) PlayerNotificationService.skipSilenceChanged?.invoke()
       call.resolve(settingsObject())
       return
     }
@@ -133,6 +137,10 @@ class AbsRbsSettings : Plugin() {
       RbsSettingsStore.KEY_VOLUME_BOOST, RbsSettingsStore.KEY_ANDROID_AUTO_BOOST -> {
         RbsSettingsStore.setInt(context, key, value.coerceIn(0, RbsSettingsStore.MAX_BOOST_DB))
         VolumeBooster.apply()
+      }
+      RbsSettingsStore.KEY_SKIP_SILENCE_MAX_MS -> {
+        RbsSettingsStore.setInt(context, key, value.coerceIn(RbsSettingsStore.MIN_SKIP_SILENCE_MS, RbsSettingsStore.MAX_SKIP_SILENCE_MS))
+        PlayerNotificationService.skipSilenceChanged?.invoke()
       }
       else -> {
         call.reject("unknown setting $key")

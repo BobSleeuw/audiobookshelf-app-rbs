@@ -18,6 +18,11 @@ object RbsSettingsStore {
   const val KEY_ANDROID_AUTO_PROGRESS_MODE = "androidAutoProgressMode"
   const val PROGRESS_CHAPTER = "CHAPTER"
   const val PROGRESS_BOOK = "BOOK"
+  const val KEY_SKIP_SILENCE = "skipSilenceEnabled"
+  const val KEY_SKIP_SILENCE_MAX_MS = "skipSilenceMaxMs"
+  const val MIN_SKIP_SILENCE_MS = 100
+  const val MAX_SKIP_SILENCE_MS = 900
+  const val DEFAULT_SKIP_SILENCE_MS = 500
   const val KEY_BOOST_ENABLED = "volumeBoostEnabled"
   const val KEY_BLUETOOTH_ENABLED = "bluetoothAutoPlayEnabled"
   const val KEY_BLUETOOTH_START_WHEN_CLOSED = "bluetoothStartWhenClosed"
@@ -62,6 +67,13 @@ object RbsSettingsStore {
 
   /** When off, Bluetooth auto play only starts while the player is already running (not from a closed app). */
   fun bluetoothStartWhenClosed(ctx: Context): Boolean = prefs(ctx).getBoolean(KEY_BLUETOOTH_START_WHEN_CLOSED, true)
+
+  /** Skip silence (feature "skip-silence"): off by default. */
+  fun skipSilenceEnabled(ctx: Context): Boolean = prefs(ctx).getBoolean(KEY_SKIP_SILENCE, false)
+
+  /** The longest pause that is kept in ms; longer pauses are cut down to this length, shorter ones are left alone. */
+  fun skipSilenceMaxMs(ctx: Context): Int =
+    prefs(ctx).getInt(KEY_SKIP_SILENCE_MAX_MS, DEFAULT_SKIP_SILENCE_MS).coerceIn(MIN_SKIP_SILENCE_MS, MAX_SKIP_SILENCE_MS)
 
   fun setBoolean(ctx: Context, key: String, value: Boolean) {
     prefs(ctx).edit().putBoolean(key, value).apply()

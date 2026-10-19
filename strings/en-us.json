@@ -316,6 +316,8 @@
   "LabelShakeToReset": "Shake to reset",
   "LabelShowAll": "Show All",
   "LabelSize": "Size",
+  "LabelSkipSilence": "Skip silence",
+  "LabelSkipSilenceLongestPause": "Longest pause kept",
   "LabelSleepTimer": "Sleep timer",
   "LabelSleepTimerAlmostDoneChime": "Play a chime when almost finished",
   "LabelSleepTimerAlmostDoneChimeHelp": "Play a chime when the sleep timer has 30 seconds remaining",

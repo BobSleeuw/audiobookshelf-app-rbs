@@ -45,6 +45,12 @@ import com.audiobookshelf.app.plugins.AbsLogger
 import com.audiobookshelf.app.server.ApiHandler
 import com.google.android.exoplayer2.*
 import com.google.android.exoplayer2.audio.AudioAttributes
+import com.google.android.exoplayer2.audio.AudioCapabilities
+import com.google.android.exoplayer2.audio.AudioProcessor
+import com.google.android.exoplayer2.audio.AudioSink
+import com.google.android.exoplayer2.audio.DefaultAudioSink
+import com.google.android.exoplayer2.audio.SilenceSkippingAudioProcessor
+import com.google.android.exoplayer2.audio.SonicAudioProcessor
 import com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector
 import com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector.CustomActionProvider
 import com.google.android.exoplayer2.ext.mediasession.TimelineQueueNavigator
@@ -77,6 +83,9 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
     var hasNetworkConnectivity = false // Not 100% reliable has internet
     var isSwitchingPlayer = false // Used when switching between cast player and exoplayer
     const val ACTION_BLUETOOTH_AUTOPLAY = "com.rbs.abs.action.BLUETOOTH_AUTOPLAY"
+
+    /** Called when a skip silence setting was changed in the app settings */
+    var skipSilenceChanged: (() -> Unit)? = null
   }
 
   private val tag = "PlayerNotificationServ"
@@ -216,6 +225,7 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
 
     Log.d(tag, "onDestroy")
     VolumeBooster.onChanged = null
+    skipSilenceChanged = null
     chapterWatcherHandler.removeCallbacks(chapterWatcher)
     VolumeBooster.release()
     isStarted = false
@@ -445,6 +455,29 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
     }
   }
 
+  private var skipSilenceBuiltMaxMs = RbsSettingsStore.DEFAULT_SKIP_SILENCE_MS
+
+  /** The skip silence switch changed: applies to the playing player right away. */
+  private fun applySkipSilenceSettings() {
+    Handler(Looper.getMainLooper()).post {
+      if (this::mPlayer.isInitialized) mPlayer.skipSilenceEnabled = RbsSettingsStore.skipSilenceEnabled(ctx)
+    }
+  }
+
+  /**
+   * The longest pause setting is part of the player's audio sink, so a new length needs a new player. This is done
+   * when the next book is prepared, never while something is playing or while casting.
+   */
+  private fun rebuildPlayerForSkipSilence() {
+    if (RbsSettingsStore.skipSilenceMaxMs(ctx) == skipSilenceBuiltMaxMs) return
+    if (mPlayer.isPlaying || currentPlayer != mPlayer) return
+    AbsLogger.info(tag, "rebuildPlayerForSkipSilence: New pause length ${RbsSettingsStore.skipSilenceMaxMs(ctx)} ms, creating the player again")
+    val oldPlayer = mPlayer
+    initializeMPlayer()
+    currentPlayer = mPlayer
+    oldPlayer.release()
+  }
+
   private fun initializeMPlayer() {
     val customLoadControl: LoadControl =
             DefaultLoadControl.Builder()
@@ -456,13 +489,43 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
                     )
                     .build()
 
+    // ABS-RBS (skip-silence): the audio sink gets a silence skipping processor that keeps pauses up to the chosen
+    // length and cuts longer pauses down to it. Silence is anything quieter than about -42 dB. The length is part
+    // of the processor, so a new length is used when the player is created again (see rebuildPlayerForSkipSilence).
+    val skipSilenceMaxMs = RbsSettingsStore.skipSilenceMaxMs(ctx)
+    skipSilenceBuiltMaxMs = skipSilenceMaxMs
+    val renderersFactory =
+            object : DefaultRenderersFactory(this) {
+              override fun buildAudioSink(
+                      context: Context,
+                      enableFloatOutput: Boolean,
+                      enableAudioTrackPlaybackParams: Boolean,
+                      enableOffload: Boolean
+              ): AudioSink? {
+                val silenceProcessor = SilenceSkippingAudioProcessor(skipSilenceMaxMs * 1000L, skipSilenceMaxMs * 500L, 256.toShort())
+                val processorChain = DefaultAudioSink.DefaultAudioProcessorChain(arrayOf<AudioProcessor>(), silenceProcessor, SonicAudioProcessor())
+                return DefaultAudioSink.Builder()
+                        .setAudioCapabilities(AudioCapabilities.getCapabilities(context))
+                        .setAudioProcessorChain(processorChain)
+                        .setEnableFloatOutput(enableFloatOutput)
+                        .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                        .setOffloadMode(
+                                if (enableOffload) DefaultAudioSink.OFFLOAD_MODE_ENABLED_GAPLESS_REQUIRED
+                                else DefaultAudioSink.OFFLOAD_MODE_DISABLED
+                        )
+                        .build()
+              }
+            }
+
     mPlayer =
-            ExoPlayer.Builder(this)
+            ExoPlayer.Builder(this, renderersFactory)
                     .setLoadControl(customLoadControl)
                     .setSeekBackIncrementMs(deviceSettings.jumpBackwardsTimeMs)
                     .setSeekForwardIncrementMs(deviceSettings.jumpForwardTimeMs)
                     .build()
     mPlayer.setHandleAudioBecomingNoisy(true)
+    mPlayer.skipSilenceEnabled = RbsSettingsStore.skipSilenceEnabled(ctx)
+    skipSilenceChanged = { applySkipSilenceSettings() }
     mPlayer.addListener(PlayerListener(this))
     mPlayer.addListener(object : Player.Listener {
       override fun onAudioSessionIdChanged(audioSessionId: Int) {
@@ -513,6 +576,8 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
         ContextCompat.startForegroundService(ctx, intent)
       }
     }
+
+    rebuildPlayerForSkipSilence()
 
     // TODO: When an item isFinished the currentTime should be reset to 0
     //        will reset the time if currentTime is within 5s of duration (for android auto)
