@@ -12,7 +12,8 @@ class BrowseTree(
   val context: Context,
   itemsInProgress: List<ItemInProgress>,
   libraries: List<Library>,
-  recentsLoaded: Boolean
+  recentsLoaded: Boolean,
+  serverUnreachable: Boolean = false
 ) {
   private val mediaIdToChildren = mutableMapOf<String, MutableList<MediaMetadataCompat>>()
 
@@ -74,6 +75,15 @@ class BrowseTree(
     }
 
     rootList += downloadsMetadata
+
+    // The server library could not be loaded: a tab that explains it and lets the user retry from the car
+    if (serverUnreachable) {
+      rootList += MediaMetadataCompat.Builder().apply {
+        putString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID, RECONNECT_ROOT)
+        putString(MediaMetadataCompat.METADATA_KEY_TITLE, "Server unreachable")
+        putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, getUriToDrawable(context, R.drawable.ic_server_unreachable).toString())
+      }.build()
+    }
 
     mediaIdToChildren[AUTO_BROWSE_ROOT] = rootList
   }

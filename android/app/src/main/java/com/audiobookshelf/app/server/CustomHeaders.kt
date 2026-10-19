@@ -17,10 +17,15 @@ object CustomHeaders {
     return DeviceManager.serverConnectionConfig?.customHeaders?.filter { it.key.isNotBlank() } ?: emptyMap()
   }
 
-  /** True when [host] is the host of any saved server (headers are never sent to other hosts, e.g. CDNs). */
+  /** The hosts of all addresses of a server: the one in use now, the external and the internal address. */
+  private fun hostsOf(config: com.audiobookshelf.app.data.ServerConnectionConfig): List<String?> {
+    return listOf(config.address, config.remoteAddress, config.localAddress).filter { !it.isNullOrBlank() }.map { Uri.parse(it).host }
+  }
+
+  /** True when [host] is the host of any address of a saved server (headers are never sent to other hosts, e.g. CDNs). */
   private fun isServerHost(host: String?): Boolean {
     if (host == null) return false
-    return DeviceManager.deviceData.serverConnectionConfigs.any { Uri.parse(it.address).host == host }
+    return DeviceManager.deviceData.serverConnectionConfigs.any { hostsOf(it).contains(host) }
   }
 
   /** Headers to use for [url]; only returned for hosts belonging to a saved server. */
@@ -28,8 +33,8 @@ object CustomHeaders {
     val host = Uri.parse(url).host
     if (!isServerHost(host)) return emptyMap()
     val active = DeviceManager.serverConnectionConfig
-    val config = if (active != null && Uri.parse(active.address).host == host) active
-    else DeviceManager.deviceData.serverConnectionConfigs.firstOrNull { Uri.parse(it.address).host == host }
+    val config = if (active != null && hostsOf(active).contains(host)) active
+    else DeviceManager.deviceData.serverConnectionConfigs.firstOrNull { hostsOf(it).contains(host) }
     return config?.customHeaders?.filter { it.key.isNotBlank() } ?: emptyMap()
   }
 

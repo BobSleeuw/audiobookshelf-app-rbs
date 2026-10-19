@@ -46,6 +46,12 @@ class MediaSessionPlaybackPreparer(var playerNotificationService:PlayerNotificat
   override fun onPrepareFromMediaId(mediaId: String, playWhenReady: Boolean, extras: Bundle?) {
     Log.d(tag, "ON PREPARE FROM MEDIA ID $mediaId $playWhenReady")
 
+    // "Try again" item of the Android Auto "server unreachable" tab
+    if (mediaId == RECONNECT_ID) {
+      playerNotificationService.retryAndroidAutoConnection("retry item tapped", true)
+      return
+    }
+
     // Volume boost menu items are selectable "media" that only change the Android Auto boost
     if (mediaId.startsWith(BOOST_ID_PREFIX)) {
       mediaId.removePrefix(BOOST_ID_PREFIX).toIntOrNull()?.let {

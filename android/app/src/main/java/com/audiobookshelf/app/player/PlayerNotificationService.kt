@@ -1380,6 +1380,39 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
     }
   }
 
+  // ABS-RBS: Android Auto could not load the server library (no network yet, server unreachable). The browse tree
+  // then only has the downloads, so retry by itself for about 3 minutes, again when the network changes, and from
+  // the "Server unreachable" tab in the car.
+  private val androidAutoRetryHandler = Handler(Looper.getMainLooper())
+  private val androidAutoRetryDelaysMs = longArrayOf(3000, 6000, 12000, 20000, 30000, 45000, 60000)
+  private var androidAutoRetryIndex = 0
+
+  /** A server is saved but its libraries are not loaded (so Android Auto only shows the downloads). */
+  fun androidAutoServerUnreachable(): Boolean {
+    return !DeviceManager.deviceData.lastServerConnectionConfigId.isNullOrBlank() && mediaManager.serverLibraries.isEmpty()
+  }
+
+  /** Loads the server library for Android Auto again; the list is refreshed when it is done. */
+  fun retryAndroidAutoConnection(reason: String, manual: Boolean = false) {
+    if (!isBrowseTreeInitialized() || !firstLoadDone || !androidAutoServerUnreachable()) return
+    if (manual) androidAutoRetryIndex = 0
+    AbsLogger.info(tag, "retryAndroidAutoConnection: $reason")
+    forceReloadingAndroidAuto = true
+    notifyChildrenChanged("/")
+  }
+
+  private fun scheduleAndroidAutoRetries() {
+    androidAutoRetryHandler.removeCallbacksAndMessages(null)
+    if (androidAutoRetryIndex >= androidAutoRetryDelaysMs.size) {
+      AbsLogger.info(tag, "scheduleAndroidAutoRetries: Stopped retrying, the server could not be reached")
+      return
+    }
+    val delay = androidAutoRetryDelaysMs[androidAutoRetryIndex++]
+    androidAutoRetryHandler.postDelayed({
+      if (androidAutoServerUnreachable()) retryAndroidAutoConnection("automatic retry $androidAutoRetryIndex")
+    }, delay)
+  }
+
   private fun onBrowseTreeInitialized()
   {
     // Called after browseTree is assigned for the first time
@@ -1445,6 +1478,19 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
     AbsLogger.info(tag, "onLoadChildren: parentMediaId: $parentMediaId (${DeviceManager.serverConnectionConfigString})")
 
     result.detach()
+
+    // "Server unreachable" tab: opening it tries to connect again, the list has one item to try again
+    if (parentMediaId == RECONNECT_ROOT) {
+      retryAndroidAutoConnection("reconnect tab opened", true)
+      val description = MediaDescriptionCompat.Builder()
+              .setMediaId(RECONNECT_ID)
+              .setTitle("Try to connect now")
+              .setSubtitle("The server could not be reached. Trying again... tap to try again.")
+              .setIconUri(getUriToDrawable(ctx, R.drawable.ic_server_unreachable))
+              .build()
+      result.sendResult(mutableListOf(MediaBrowserCompat.MediaItem(description, MediaBrowserCompat.MediaItem.FLAG_PLAYABLE)))
+      return
+    }
 
     // Prevent crashing if app is restarted while browsing
     if ((parentMediaId != DOWNLOADS_ROOT && parentMediaId != AUTO_MEDIA_ROOT && parentMediaId != BOOST_ROOT) && !firstLoadDone) {
@@ -1572,7 +1618,8 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
                           this,
                           mediaManager.serverItemsInProgress,
                           mediaManager.serverLibraries,
-                          mediaManager.allLibraryPersonalizationsDone
+                          mediaManager.allLibraryPersonalizationsDone,
+                          androidAutoServerUnreachable()
                   )
           onBrowseTreeInitialized()
           val children =
@@ -1586,6 +1633,8 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
 
           result.sendResult(children as MutableList<MediaBrowserCompat.MediaItem>?)
           firstLoadDone = true
+          // Could not reach the server: keep trying for a few minutes (and again when the network changes)
+          if (androidAutoServerUnreachable()) scheduleAndroidAutoRetries() else androidAutoRetryIndex = 0
           if (mediaManager.serverLibraries.isNotEmpty()) {
             AbsLogger.info(tag, "onLoadChildren: Android Auto fetching personalized data for all libraries")
             mediaManager.populatePersonalizedDataForAllLibraries {
@@ -1607,7 +1656,8 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
                         this,
                         mediaManager.serverItemsInProgress,
                         mediaManager.serverLibraries,
-                        mediaManager.allLibraryPersonalizationsDone
+                        mediaManager.allLibraryPersonalizationsDone,
+                        androidAutoServerUnreachable()
                 )
         onBrowseTreeInitialized()
         val children =
@@ -2345,6 +2395,7 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
                                 firstLoadDone &&
                                 mediaManager.serverLibraries.isEmpty()
                 ) {
+                  androidAutoRetryIndex = 0
                   forceReloadingAndroidAuto = true
                   notifyChildrenChanged("/")
                 }

@@ -11,6 +11,10 @@ const val CUSTOM_ACTION_CHANGE_BOOST = "com.audiobookshelf.customAction.change_b
 const val BOOST_ROOT = "__RBS_BOOST__"
 const val BOOST_ID_PREFIX = "__RBS_BOOST__:"
 
+// Android Auto "server unreachable" tab (shown when the server library could not be loaded) and its retry item
+const val RECONNECT_ROOT = "__RBS_RECONNECT__"
+const val RECONNECT_ID = "__RBS_RECONNECT_NOW__"
+
 const val PLAYMETHOD_DIRECTPLAY = 0
 const val PLAYMETHOD_DIRECTSTREAM = 1
 const val PLAYMETHOD_TRANSCODE = 2
