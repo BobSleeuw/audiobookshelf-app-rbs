@@ -185,11 +185,7 @@ export default {
       ]
     },
     historyMinItems() {
-      return [
-        { text: '30 s', value: 30 },
-        { text: '1 min', value: 60 },
-        { text: '5 min', value: 300 }
-      ]
+      return [15, 30, 60, 120, 300].map((value) => ({ text: this.getJumpLabel(value), value }))
     },
     progressModeItems() {
       return [
@@ -310,7 +306,7 @@ export default {
             { id: 'mediaSeeking', type: 'toggle', label: s.LabelAllowSeekingOnMediaControls },
             { id: 'progressMode', type: 'select', label: s.LabelProgressInNotification, options: this.progressModeItems, android: true },
             { id: 'historyEnabled', type: 'toggle', label: s.LabelPlaybackHistory, dividerBefore: true },
-            { id: 'historyMin', type: 'select', label: s.LabelHistoryIgnoreShorterThan, options: this.historyMinItems, showIf: ['historyEnabled'] },
+            { id: 'historyMin', type: 'steps', label: s.LabelHistoryIgnoreShorterThan, options: this.historyMinItems, showIf: ['historyEnabled'] },
             { id: 'historyBar', type: 'toggle', label: s.LabelHistoryShowGoBackBar, showIf: ['historyEnabled'] },
             { id: 'historyBadge', type: 'toggle', label: s.LabelHistoryShowCount, showIf: ['historyEnabled'] },
             { id: 'boostEnabled', type: 'toggle', label: s.LabelVolumeBoost, dividerBefore: true, android: true },
