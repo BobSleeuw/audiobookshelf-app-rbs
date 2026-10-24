@@ -1,4 +1,6 @@
 const pkg = require('./package.json')
+// ABS-RBS: build number of this custom build, read from the Android versionName (for example 0.14.2-rbs.12.1)
+const rbsMatch = require('fs').readFileSync('./android/app/build.gradle', 'utf8').match(/versionName "[^"]*?rbs\.([\d.]+)"/)
 
 export default {
   ssr: false,
@@ -11,7 +13,8 @@ export default {
   },
 
   publicRuntimeConfig: {
-    version: pkg.version
+    version: pkg.version,
+    rbsVersion: rbsMatch ? rbsMatch[1] : ''
   },
 
   head: {
