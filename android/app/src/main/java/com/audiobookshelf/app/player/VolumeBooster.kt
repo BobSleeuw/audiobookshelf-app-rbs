@@ -21,6 +21,7 @@ object VolumeBooster {
   private var appContext: Context? = null
   private var enhancer: LoudnessEnhancer? = null
   private var observer: ContentObserver? = null
+  private var lastAudioSessionId = 0
 
   /** True while the phone is connected to Android Auto (projection) or a native car OS. */
   @Volatile
@@ -67,6 +68,7 @@ object VolumeBooster {
   @Synchronized
   fun attach(ctx: Context, audioSessionId: Int) {
     appContext = ctx.applicationContext
+    lastAudioSessionId = audioSessionId
     releaseEnhancer()
     if (audioSessionId <= 0) return
     try {
@@ -105,6 +107,30 @@ object VolumeBooster {
     val before = carConnected
     apply(notify = false)
     if (before != carConnected) onChanged?.invoke()
+    // The audio track of the player is created a moment after playback starts, and an effect that was set up before
+    // that can be ignored by it until something resets it (a level change or a seek did). So the effect is created
+    // again shortly after playback started.
+    reattachHandler.removeCallbacks(reattachRunnable)
+    reattachHandler.postDelayed(reattachRunnable, 400)
+    reattachHandler.postDelayed(reattachRunnable, 2000)
+  }
+
+  private val reattachHandler = Handler(Looper.getMainLooper())
+  private val reattachRunnable = Runnable { reattach() }
+
+  /** Creates the enhancer again on the current audio session so it is bound to the audio track that plays now. */
+  @Synchronized
+  fun reattach() {
+    val ctx = appContext ?: return
+    if (lastAudioSessionId <= 0 || currentBoostDb(ctx) <= 0) return
+    releaseEnhancer()
+    try {
+      enhancer = LoudnessEnhancer(lastAudioSessionId)
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to create LoudnessEnhancer for session $lastAudioSessionId: ${e.message}")
+      enhancer = null
+    }
+    apply(notify = false)
   }
 
   /** Starts watching the Android Auto connection state (provided by the Android Auto app). */
