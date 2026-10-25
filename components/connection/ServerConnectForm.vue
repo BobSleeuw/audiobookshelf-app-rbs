@@ -1,18 +1,19 @@
 <template>
-  <div class="w-full max-w-md mx-auto px-2 sm:px-4 lg:px-8 z-10">
-    <div v-show="!loggedIn" class="mt-8 bg-primary overflow-hidden shadow rounded-lg px-4 py-6 w-full">
+  <div class="w-full px-4 z-10">
+    <!-- the server list is a card; the details and login screens use the whole screen -->
+    <div v-show="!loggedIn" class="w-full" :class="showForm ? 'mt-2 pb-4' : 'mt-8 bg-primary overflow-hidden shadow rounded-lg px-4 py-6'">
       <!-- list of server connection configs -->
       <template v-if="!showForm">
         <div v-for="config in serverConnectionConfigs" :key="config.id" class="border-b border-fg/10 py-4">
           <div class="flex items-center my-1 relative space-x-2" @click="connectToServer(config)">
             <div class="grow inline-flex items-center overflow-hidden">
-              <p class="text-base text-fg truncate">{{ config.name }}</p>
+              <p class="text-base text-fg truncate">
+                {{ config.alias || config.remoteAddress || config.address }}
+                <span v-if="config.username" class="inline-flex items-center whitespace-nowrap text-fg-muted ml-1">[<span class="material-symbols" style="font-size: 1.1rem">person</span>{{ config.username }}]</span>
+              </p>
             </div>
-            <div class="h-full w-6 flex items-center" @click.stop="editServerConfig(config)">
-              <span class="material-symbols text-2xl text-fg-muted">more_vert</span>
-            </div>
-            <div class="h-full w-6 flex items-center" @click.stop="removeServerConfigClick(config)">
-              <span class="material-symbols fill text-1.5xl text-fg-muted">delete</span>
+            <div class="h-full w-8 flex items-center justify-center" @click.stop="openServerDetails(config)">
+              <span class="material-symbols text-2xl text-fg-muted">edit</span>
             </div>
           </div>
           <!-- warning message if server connection config is using an old user id -->
@@ -32,23 +33,49 @@
       </template>
       <!-- form to add a new server connection config -->
       <div v-else class="w-full">
-        <!-- server address input -->
-        <form v-if="!showAuth" @submit.prevent="submit(false)" novalidate class="w-full">
-          <div v-if="serverConnectionConfigs.length" class="flex items-center mb-4" @click="showServerList">
-            <span class="material-symbols text-fg-muted">arrow_back</span>
+        <!-- server details: addresses, local network and custom headers on one screen -->
+        <form v-if="!showAuth" @submit.prevent="onDetailsSubmit" novalidate class="w-full">
+          <h2 class="text-lg leading-7 mb-2">{{ serverConfig.id ? $strings.HeaderServerDetails : $strings.ButtonAddNewServer }}</h2>
+
+          <!-- server alias -->
+          <p class="text-sm text-fg-muted mb-1">{{ $strings.LabelServerAlias }}</p>
+          <ui-text-input v-model="detail.alias" :disabled="processing" :placeholder="$strings.LabelOptional" class="w-full h-10" />
+          <p class="text-xs text-fg-muted mt-1">{{ $strings.MessageServerAliasDescription }}</p>
+
+          <!-- external URL -->
+          <div class="w-full h-px bg-fg/10 my-4" />
+          <p class="text-sm text-fg-muted mb-1">{{ $strings.LabelExternalUrl }}</p>
+          <ui-text-input v-model="detail.address" :disabled="processing" placeholder="https://abs.example.com" type="url" class="w-full h-10" />
+          <div class="flex items-center flex-wrap gap-2 mt-2">
+            <ui-btn :disabled="processing || testingAddress || !detail.address" type="button" :padding-x="3" :padding-y="0" class="h-8 text-sm" @click="testServerAddress">{{ $strings.ButtonTest }}</ui-btn>
+            <ui-btn :disabled="processing" type="button" :padding-x="3" :padding-y="0" class="h-8 text-sm" @click="addCustomHeaders">{{ $strings.HeaderCustomHeaders }}<span v-if="customHeadersCount" class="ml-1">({{ customHeadersCount }})</span></ui-btn>
           </div>
-          <h2 class="text-lg leading-7 mb-2">{{ $strings.LabelServerAddress }}</h2>
-          <ui-text-input v-model="serverConfig.address" :disabled="processing || !networkConnected || !!serverConfig.id" placeholder="http://55.55.55.55:13378" type="url" class="w-full h-10" />
-          <div class="flex justify-end items-center mt-6">
-            <ui-btn :disabled="processing || !networkConnected" type="submit" :padding-x="3" class="h-10">{{ networkConnected ? $strings.ButtonSubmit : $strings.MessageNoNetworkConnection }}</ui-btn>
+          <p v-if="addressTestText" class="text-xs mt-2" :class="addressTestOk ? 'text-success' : 'text-error'">{{ addressTestText }}</p>
+
+          <!-- internal URL + home network -->
+          <div class="w-full h-px bg-fg/10 my-4" />
+          <p class="text-sm text-fg-muted mb-1">{{ $strings.LabelInternalUrl }}</p>
+          <ui-text-input v-model="detail.localAddress" :disabled="processing" placeholder="http://192.168.1.10:13378" type="url" class="w-full h-10" />
+          <p class="text-xs text-fg-muted mt-1">{{ $strings.MessageInternalUrlDescription }}</p>
+          <div class="flex items-center mt-2">
+            <ui-btn :disabled="processing || testingLocal || !detail.localAddress" type="button" :padding-x="3" :padding-y="0" class="h-8 text-sm" @click="testLocalAddress">{{ $strings.ButtonTest }}</ui-btn>
+          </div>
+          <p v-if="localTestText" class="text-xs mt-2" :class="localTestOk ? 'text-success' : 'text-error'">{{ localTestText }}</p>
+          <p class="text-sm text-fg-muted mt-4 mb-1">{{ $strings.LabelHomeNetworkSsids }}</p>
+          <ui-text-input v-model="detail.ssidText" :disabled="processing" placeholder="HomeWifi, HomeWifi-5G" class="w-full h-10" />
+          <p class="text-xs text-fg-muted mt-1">{{ $strings.MessageHomeNetworkSsidsDescription }}</p>
+          <ui-btn :disabled="processing" type="button" :padding-x="3" :padding-y="0" class="h-8 text-sm mt-2" @click="addCurrentWifi">{{ $strings.ButtonAddCurrentNetwork }}</ui-btn>
+
+          <!-- actions -->
+          <div class="flex items-center mt-6">
+            <ui-icon-btn v-if="serverConfig.id" bg-color="error" icon="delete" type="button" @click="removeServerConfigClick(serverConfig)" />
+            <ui-btn v-if="serverConfig.id" :disabled="processing || !networkConnected" type="button" :padding-x="3" class="h-10 ml-2" @click="reLogin">{{ $strings.ButtonLogInAgain }}</ui-btn>
+            <div class="flex-grow" />
+            <ui-btn :disabled="processing || (!serverConfig.id && !networkConnected)" type="submit" :padding-x="3" class="h-10">{{ serverConfig.id ? $strings.ButtonSave : networkConnected ? $strings.ButtonSubmit : $strings.MessageNoNetworkConnection }}</ui-btn>
           </div>
         </form>
         <!-- username/password and auth methods -->
         <template v-else>
-          <div v-if="serverConfig.id" class="flex items-center mb-4" @click="showServerList">
-            <span class="material-symbols text-fg-muted">arrow_back</span>
-          </div>
-
           <div class="flex items-center">
             <p class="text-fg-muted">{{ serverConfig.address }}</p>
             <div class="flex-grow" />
@@ -115,6 +142,14 @@ export default {
       error: null,
       showForm: false,
       showAddCustomHeaders: false,
+      // Editable copy of the addresses on the server details screen
+      detail: { alias: '', address: '', localAddress: '', ssidText: '' },
+      testingAddress: false,
+      addressTestText: '',
+      addressTestOk: false,
+      testingLocal: false,
+      localTestText: '',
+      localTestOk: false,
       authMethods: [],
       oauth: {
         state: null,
@@ -125,7 +160,27 @@ export default {
       }
     }
   },
+  watch: {
+    /**
+     * The server details / login are a step in the history, so the Android back gesture returns to the server list
+     * instead of leaving the page.
+     */
+    showForm(open) {
+      const inHistory = !!this.$route.query.view
+      if (open && !inHistory && this.serverConnectionConfigs.length) {
+        this.$router.push({ query: { view: 'details' } })
+      } else if (!open && inHistory) {
+        this.$router.back()
+      }
+    },
+    '$route.query.view'(view) {
+      if (!view && this.showForm && this.serverConnectionConfigs.length) this.showServerList()
+    }
+  },
   computed: {
+    customHeadersCount() {
+      return Object.keys(this.serverConfig.customHeaders || {}).length
+    },
     deviceData() {
       return this.$store.state.deviceData || {}
     },
@@ -298,6 +353,7 @@ export default {
       try {
         const response = await CapacitorHttp.get({
           url: backendEndpoint,
+          headers: this.serverConfig.customHeaders || {},
           disableRedirects: true,
           webFetchExtra: {
             redirect: 'manual'
@@ -395,7 +451,8 @@ export default {
       try {
         // Returns the same user response payload as /login
         const response = await CapacitorHttp.get({
-          url: backendEndpoint
+          url: backendEndpoint,
+          headers: this.serverConfig.customHeaders || {}
         })
         // v2.26.0+ returns accessToken and refreshToken on user object
         if (!response.data?.user?.token && !response.data?.user?.accessToken) {
@@ -433,8 +490,146 @@ export default {
         this.oauth.challenge = null
       }
     },
+    /** Fills the details screen from the current serverConfig */
+    initDetails() {
+      const cfg = this.serverConfig || {}
+      this.detail = {
+        alias: cfg.alias || '',
+        address: cfg.remoteAddress || (cfg.address !== cfg.localAddress ? cfg.address : '') || '',
+        localAddress: cfg.localAddress || '',
+        ssidText: (cfg.localSsids || []).join(', ')
+      }
+      this.addressTestText = ''
+      this.localTestText = ''
+    },
+    parseSsids() {
+      return (this.detail.ssidText || '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s) => s)
+    },
+    /** Tests the normal address (with the custom headers) */
+    async testServerAddress() {
+      const address = this.$localNetwork.normalizeAddress(this.detail.address)
+      if (!address) return
+      this.testingAddress = true
+      this.addressTestText = ''
+      const result = await this.$localNetwork.testConnection(address, this.serverConfig.customHeaders)
+      this.addressTestOk = result.ok
+      this.addressTestText = this.$localNetwork.describeTest(result, this.$strings)
+      this.testingAddress = false
+    },
+    /** Tests the local address */
+    async testLocalAddress() {
+      const address = this.$localNetwork.normalizeAddress(this.detail.localAddress)
+      if (!address) return
+      this.testingLocal = true
+      this.localTestText = ''
+      const result = await this.$localNetwork.testConnection(address)
+      this.localTestOk = result.ok
+      this.localTestText = this.$localNetwork.describeTest(result, this.$strings)
+      this.testingLocal = false
+    },
+    /** Adds the name of the Wi-Fi network the phone is connected to */
+    async addCurrentWifi() {
+      this.error = null
+      try {
+        const perm = await this.$rbsSettings.requestLocationPermission()
+        if (!perm.granted) {
+          this.error = this.$strings.MessageLocationPermissionNeeded
+          return
+        }
+        const { ssid } = await this.$rbsSettings.getWifiSsid()
+        if (!ssid) {
+          this.error = this.$strings.MessageWifiNameUnavailable
+          return
+        }
+        const ssids = this.parseSsids()
+        if (!ssids.includes(ssid)) ssids.push(ssid)
+        this.detail.ssidText = ssids.join(', ')
+      } catch (error) {
+        console.error('[ServerConnectForm] Failed to get Wi-Fi name', error)
+        this.error = this.$strings.MessageWifiNameUnavailable
+      }
+    },
+    /** Opens the details screen of a saved server */
+    openServerDetails(config) {
+      this.serverConfig = { ...config }
+      this.password = null
+      this.showForm = true
+      this.showAuth = false
+      this.error = null
+      this.initDetails()
+    },
+    onDetailsSubmit() {
+      return this.serverConfig.id ? this.saveServerDetails() : this.continueNewServer()
+    },
+    /** New server: carry the details over and check the server, then show the login step */
+    async continueNewServer() {
+      this.serverConfig.address = this.detail.address
+      this.serverConfig.alias = this.detail.alias.trim() || null
+      const local = this.$localNetwork.normalizeAddress(this.detail.localAddress)
+      this.serverConfig.localAddress = local || null
+      this.serverConfig.localSsids = local ? this.parseSsids() : []
+      return this.submit(false)
+    },
+    /** Saved server: store the addresses, local network settings and custom headers */
+    async saveServerDetails() {
+      this.error = null
+      const validated = this.validateServerUrl(this.prependProtocolIfNeeded(this.detail.address.trim()))
+      if (!validated) {
+        this.error = this.$strings.MessageInvalidServerAddress
+        return
+      }
+      const local = this.$localNetwork.normalizeAddress(this.detail.localAddress)
+      this.processing = true
+      try {
+        let updated = await this.$db.updateServerAddresses({
+          id: this.serverConfig.id,
+          address: validated,
+          remoteAddress: validated,
+          userEdit: true,
+          alias: this.detail.alias.trim(),
+          localAddress: local,
+          localSsids: local ? this.parseSsids() : [],
+          customHeaders: this.serverConfig.customHeaders || {}
+        })
+        // Use the local address right away when it is reachable from here
+        const active = await this.$localNetwork.resolveAddress(updated)
+        if (active !== updated.address) {
+          updated = await this.$db.updateServerAddresses({ id: updated.id, address: active })
+        }
+
+        // Keep the stored copies in sync
+        this.$store.commit('setDeviceData', await this.$db.getDeviceData())
+        const current = this.$store.state.user.serverConnectionConfig
+        if (current?.id === updated.id) {
+          this.$store.commit('user/setServerConnectionConfig', { ...current, address: updated.address, remoteAddress: updated.remoteAddress, localAddress: updated.localAddress, localSsids: updated.localSsids, customHeaders: updated.customHeaders, name: updated.name, alias: updated.alias })
+        }
+        this.showServerList()
+      } catch (error) {
+        console.error('[ServerConnectForm] Failed to save server details', error)
+        this.error = this.$strings.ToastFailedToUpdate
+      } finally {
+        this.processing = false
+      }
+    },
+    /** Saved server: go to the login step to enter credentials again */
+    async reLogin() {
+      if (await this.submit(true)) {
+        this.showForm = true
+      }
+    },
     addCustomHeaders() {
       this.showAddCustomHeaders = true
+    },
+    /** The page's back button: from the server details / login back to the server list. Returns false when there is nowhere to go inside the form. */
+    goBack() {
+      if (!this.showForm || !this.serverConnectionConfigs.length) return false
+      // Same as the back gesture: the details are a step in the browser history
+      if (this.$route.query.view) this.$router.back()
+      else this.showServerList()
+      return true
     },
     showServerList() {
       this.showForm = false
@@ -445,16 +640,30 @@ export default {
         userId: null,
         username: null
       }
+      this.initDetails()
     },
     async connectToServer(config) {
       await this.$hapticsImpact()
       console.log('[ServerConnectForm] connectToServer', config.address)
       this.processing = true
+
+      // Pick the internal or external URL for the network we are on now (the saved address is the one used last time)
+      if (config.localAddress) {
+        try {
+          const activeAddress = await this.$localNetwork.resolveAddress(config)
+          if (activeAddress && activeAddress !== config.address) {
+            config = await this.$db.updateServerAddresses({ id: config.id, address: activeAddress })
+          }
+        } catch (error) {
+          console.error('[ServerConnectForm] Failed to resolve the server address', error)
+        }
+      }
+
       this.serverConfig = {
         ...config
       }
       this.showForm = true
-      var success = await this.pingServerAddress(config.address)
+      var success = await this.pingServerAddress(config.address, config.customHeaders || {})
       this.processing = false
       console.log(`[ServerConnectForm] pingServer result ${success}`)
       if (!success) {
@@ -505,15 +714,6 @@ export default {
         this.error = null
       }
     },
-    async editServerConfig(serverConfig) {
-      this.serverConfig = {
-        ...serverConfig
-      }
-
-      if (await this.submit(true)) {
-        this.showForm = true
-      }
-    },
     async newServerConfigClick() {
       await this.$hapticsImpact()
       this.serverConfig = {
@@ -524,10 +724,12 @@ export default {
       this.showForm = true
       this.showAuth = false
       this.error = null
+      this.initDetails()
     },
     editServerAddress() {
       this.error = null
       this.showAuth = false
+      this.initDetails()
     },
     /**
      * Validates a URL and reconstructs it with an optional protocol override.
@@ -615,7 +817,7 @@ export default {
      *    HttpResponse.data is {isInit:boolean, language:string, authMethods:string[]}>
      */
     async getServerAddressStatus(address) {
-      return this.getRequest(`${address}/status`)
+      return this.getRequest(`${address}/status`, this.serverConfig.customHeaders || {})
     },
     pingServerAddress(address, customHeaders) {
       return this.getRequest(`${address}/ping`, customHeaders)
@@ -874,7 +1076,24 @@ export default {
 
       this.serverConfig.version = serverSettings.version
 
+      const isNewServer = !this.serverConfig.id
       var serverConnectionConfig = await this.$db.setServerConnectionConfig(this.serverConfig)
+
+      // Alias and internal URL entered on the details screen of a NEW server. Saved servers already have these
+      // stored, and the address in use may be the internal one, so they must not be written again here.
+      if (isNewServer && (this.serverConfig.localAddress || this.serverConfig.alias) && serverConnectionConfig?.id) {
+        try {
+          let updated = await this.$db.updateServerAddresses({ id: serverConnectionConfig.id, remoteAddress: this.serverConfig.address, alias: this.serverConfig.alias || '', localAddress: this.serverConfig.localAddress || '', localSsids: this.serverConfig.localSsids || [] })
+          const active = await this.$localNetwork.resolveAddress(updated)
+          if (active !== updated.address) {
+            updated = await this.$db.updateServerAddresses({ id: updated.id, address: active })
+          }
+          serverConnectionConfig = { ...serverConnectionConfig, address: updated.address, remoteAddress: updated.remoteAddress, alias: updated.alias, localAddress: updated.localAddress, localSsids: updated.localSsids }
+          this.serverConfig.address = updated.address
+        } catch (error) {
+          console.error('[ServerConnectForm] Failed to save local network settings', error)
+        }
+      }
 
       // Set the device language to match the servers if this is the first server connection
       if (!this.serverConnectionConfigs.length && serverSettings.language !== 'en-us') {

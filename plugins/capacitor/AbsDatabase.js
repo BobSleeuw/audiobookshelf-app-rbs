@@ -83,6 +83,26 @@ class AbsDatabaseWeb extends WebPlugin {
     return ssc
   }
 
+  /**
+   * Web (browser preview) version of updating a saved server's address / local network settings
+   */
+  async updateServerAddresses(payload) {
+    const deviceData = await this.getDeviceData()
+    const ssc = deviceData.serverConnectionConfigs.find((_ssc) => _ssc.id == payload.id)
+    if (!ssc) throw new Error('Server connection config not found')
+    if (payload.address) ssc.address = payload.address
+    // The external URL is only set once or by an explicit user edit, never by the app itself
+    const remoteChanged = 'remoteAddress' in payload && (payload.userEdit || !ssc.remoteAddress)
+    if (remoteChanged) ssc.remoteAddress = payload.remoteAddress || null
+    if ('localAddress' in payload) ssc.localAddress = payload.localAddress || null
+    if ('localSsids' in payload) ssc.localSsids = payload.localSsids || []
+    if ('alias' in payload) ssc.alias = (payload.alias || '').trim() || null
+    if ('customHeaders' in payload) ssc.customHeaders = payload.customHeaders || {}
+    if (remoteChanged && payload.remoteAddress) ssc.name = `${payload.remoteAddress} (${ssc.username})`
+    localStorage.setItem('device', JSON.stringify(deviceData))
+    return ssc
+  }
+
   async getRefreshToken({ serverConnectionConfigId }) {
     console.log('[AbsDatabase] Getting refresh token...', serverConnectionConfigId)
     const refreshToken = localStorage.getItem(`refresh_token_${serverConnectionConfigId}`)

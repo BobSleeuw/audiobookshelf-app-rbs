@@ -325,7 +325,7 @@ data class PodcastEpisode(
     val mediaDescriptionBuilder = MediaDescriptionCompat.Builder()
       .setMediaId(mediaId)
       .setTitle(title)
-      .setIconUri(coverUri)
+      .setIconUri(libraryItemDescription.iconUri ?: coverUri)
       .setSubtitle(subtitle)
       .setExtras(extras)
 

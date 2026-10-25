@@ -729,6 +729,32 @@ class MediaManager(private var apiHandler: ApiHandler, var ctx: Context) {
     return successfulPing
   }
 
+  /**
+   * ABS-RBS: a server can have an internal and an external address. Android Auto may connect while the app screen is
+   * not running, so the address in use is not up to date. Tries the internal address (on Wi-Fi), the external one and
+   * the last used one, and keeps the first that answers as the address in use.
+   */
+  private suspend fun resolveReachableAddress(config: ServerConnectionConfig): Boolean {
+    val candidates = mutableListOf<String>()
+    if (!config.localAddress.isNullOrBlank() && DeviceManager.isOnLocalNetwork(ctx)) candidates.add(config.localAddress!!)
+    candidates.add(config.remoteAddress ?: config.address)
+    candidates.add(config.address)
+
+    for (address in candidates.distinct()) {
+      val reachable = checkServerConnection(config.copy(address = address))
+      Log.d(tag, "resolveReachableAddress: $address reachable = $reachable")
+      if (reachable) {
+        if (address != config.address) {
+          Log.i(tag, "resolveReachableAddress: Switching server address ${config.address} -> $address")
+          config.address = address
+          DeviceManager.dbManager.saveDeviceData(DeviceManager.deviceData)
+        }
+        return true
+      }
+    }
+    return false
+  }
+
   private suspend fun authorize(config:ServerConnectionConfig) : MutableList<MediaProgress> {
     var mediaProgress:MutableList<MediaProgress> = mutableListOf()
     suspendCoroutine { cont ->
@@ -773,7 +799,7 @@ class MediaManager(private var apiHandler: ApiHandler, var ctx: Context) {
         if (!hasValidConn) {
           // First check if the current selected config is pingable
           DeviceManager.serverConnectionConfig?.let {
-            hasValidConn = checkServerConnection(it)
+            hasValidConn = resolveReachableAddress(it)
             Log.d(
               tag,
               "checkSetValidServerConnectionConfig: Current config ${DeviceManager.serverAddress} is pingable? $hasValidConn"
@@ -783,8 +809,10 @@ class MediaManager(private var apiHandler: ApiHandler, var ctx: Context) {
 
         if (!hasValidConn) {
           // Loop through available configs and check if can connect
-          for (config: ServerConnectionConfig in DeviceManager.deviceData.serverConnectionConfigs) {
-            val result = checkServerConnection(config)
+          // The last used server first
+          val lastId = DeviceManager.deviceData.lastServerConnectionConfigId
+          for (config: ServerConnectionConfig in DeviceManager.deviceData.serverConnectionConfigs.sortedByDescending { it.id == lastId }) {
+            val result = resolveReachableAddress(config)
 
             if (result) {
               hasValidConn = true

@@ -190,6 +190,16 @@ class PlaybackSession(
     return Uri.parse("$serverAddress/api/items/$libraryItemId/cover?token=${DeviceManager.token}")
   }
 
+  /** Cover address for Android Auto and the notification (ABS-RBS aa-cover-art) */
+  @JsonIgnore
+  fun getCarCoverUri(ctx: Context): Uri {
+    val local = localLibraryItem
+    if (local?.coverContentUrl != null) return com.audiobookshelf.app.media.CoverProvider.localItemUri(local.id)
+    val itemId = libraryItemId
+    if (coverPath == null || itemId == null) return getCoverUri(ctx)
+    return com.audiobookshelf.app.media.CoverProvider.serverItemUri(itemId)
+  }
+
   @JsonIgnore
   fun getContentUri(audioTrack: AudioTrack): Uri {
     if (isLocal) return Uri.parse(audioTrack.contentUrl) // Local content url
@@ -215,7 +225,7 @@ class PlaybackSession(
    */
   @JsonIgnore
   fun getMediaMetadataCompat(ctx: Context): MediaMetadataCompat {
-    val coverUri = getCoverUri(ctx)
+    val coverUri = getCarCoverUri(ctx)
 
     val metadataBuilder =
             MediaMetadataCompat.Builder()
@@ -234,14 +244,16 @@ class PlaybackSession(
                             coverUri.toString()
                     )
 
+    // The cover address is always included next to the bitmap (upstream dropped it once the bitmap was ready):
+    // some Android Auto screens, like the dashboard card, only use the address and ignore the bitmap
+    metadataBuilder
+      .putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, coverUri.toString())
+      .putString(MediaMetadataCompat.METADATA_KEY_ART_URI, coverUri.toString())
+
     if (resolvedCoverBitmap != null) {
       metadataBuilder
         .putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, resolvedCoverBitmap)
         .putBitmap(MediaMetadataCompat.METADATA_KEY_ART, resolvedCoverBitmap)
-    } else {
-      metadataBuilder
-        .putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, coverUri.toString())
-        .putString(MediaMetadataCompat.METADATA_KEY_ART_URI, coverUri.toString())
     }
 
     return metadataBuilder.build()

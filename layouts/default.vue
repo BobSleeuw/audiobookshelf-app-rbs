@@ -26,10 +26,25 @@ export default {
       disconnectTime: 0,
       socketDisconnectedTime: 0,
       timeLostFocus: 0,
-      currentLang: null
+      currentLang: null,
+      reconnectTimer: null,
+      reconnectAttempt: 0
     }
   },
   watch: {
+    // Wi-Fi / network changed: switch between the local and remote server address
+    networkChangeCounter() {
+      if (!this.hasMounted) return
+      if (this.addressTimer) clearTimeout(this.addressTimer)
+    clearTimeout(this.switchingTimeout)
+      // With an internal URL the address may have to change: show the busy icon right away (until the switch is done)
+      if (this.$store.state.user.serverConnectionConfig?.localAddress) {
+        this.$store.commit('setSwitchingAddress', true)
+        clearTimeout(this.switchingTimeout)
+        this.switchingTimeout = setTimeout(() => this.$store.commit('setSwitchingAddress', false), 15000) // never stay busy
+      }
+      this.addressTimer = setTimeout(() => this.updateActiveAddress(), 2500)
+    },
     networkConnected: {
       handler(newVal, oldVal) {
         if (!this.hasMounted) {
@@ -43,6 +58,7 @@ export default {
           } else if (!this.currentLibraryId) {
             this.initLibraries()
           } else {
+            if (!this.socketConnected) this.$socket.reconnect()
             var timeSinceDisconnect = Date.now() - this.disconnectTime
             if (timeSinceDisconnect > 5000) {
               console.log('[default] Time since disconnect was', timeSinceDisconnect, 'sync with server')
@@ -90,6 +106,9 @@ export default {
     networkConnected() {
       return this.$store.state.networkConnected
     },
+    networkChangeCounter() {
+      return this.$store.state.networkChangeCounter
+    },
     socketConnected() {
       return this.$store.state.socketConnected
     },
@@ -125,11 +144,64 @@ export default {
 
       await this.$store.dispatch('user/loadUserSettings')
     },
+    /** Switches the connected server between its local and remote address when the network changed */
+    async updateActiveAddress() {
+      const config = this.$store.state.user.serverConnectionConfig
+      if (!config?.localAddress || this.attemptingConnection) return this.endSwitching()
+      let switched = false
+      try {
+        const activeAddress = await this.$localNetwork.resolveAddress(config)
+        if (!activeAddress || activeAddress === config.address) return
+
+        AbsLogger.info({ tag: 'default', message: `updateActiveAddress: Switching server address ${config.address} -> ${activeAddress}` })
+        const updated = await this.$db.updateServerAddresses({ id: config.id, address: activeAddress })
+        this.$store.commit('user/setServerConnectionConfig', { ...config, address: updated.address })
+        this.$socket.connect(updated.address, this.$store.getters['user/getToken'])
+        switched = true
+      } catch (error) {
+        AbsLogger.error({ tag: 'default', message: `updateActiveAddress: Failed: ${error?.message}` })
+      } finally {
+        if (switched) await this.waitForSocket()
+        this.endSwitching()
+      }
+    },
+    /** Waits (at most 8 seconds) until the socket is connected again after switching the address */
+    async waitForSocket() {
+      await new Promise((resolve) => setTimeout(resolve, 600))
+      for (let i = 0; i < 40 && !this.socketConnected; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 200))
+      }
+    },
+    endSwitching() {
+      clearTimeout(this.switchingTimeout)
+      this.$store.commit('setSwitchingAddress', false)
+    },
+    /**
+     * Retries attemptConnection with a growing delay so a temporary server/tunnel/network problem does not leave
+     * the app disconnected until the user manually reconnects.
+     */
+    scheduleReconnect() {
+      if (this.reconnectTimer) return
+      const delays = [2000, 5000, 10000, 20000, 30000, 60000]
+      const delay = delays[Math.min(this.reconnectAttempt, delays.length - 1)]
+      this.reconnectAttempt++
+      AbsLogger.info({ tag: 'default', message: `scheduleReconnect: retry #${this.reconnectAttempt} in ${delay}ms` })
+      this.reconnectTimer = setTimeout(() => {
+        this.reconnectTimer = null
+        if (!this.user) this.attemptConnection()
+      }, delay)
+    },
+    clearReconnect() {
+      if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
+      this.reconnectAttempt = 0
+    },
     async attemptConnection() {
       console.warn('[default] attemptConnection')
       if (!this.networkConnected) {
         console.warn('[default] No network connection')
         AbsLogger.info({ tag: 'default', message: 'attemptConnection: No network connection' })
+        // networkConnected watcher triggers attemptConnection again once the network is back
         return
       }
       if (this.attemptingConnection) {
@@ -154,6 +226,19 @@ export default {
         return
       }
 
+      // Use the local address on the local network, the remote address elsewhere
+      if (serverConfig.localAddress) {
+        try {
+          const activeAddress = await this.$localNetwork.resolveAddress(serverConfig)
+          if (activeAddress && activeAddress !== serverConfig.address) {
+            AbsLogger.info({ tag: 'default', message: `attemptConnection: Switching server address ${serverConfig.address} -> ${activeAddress}` })
+            serverConfig = await this.$db.updateServerAddresses({ id: serverConfig.id, address: activeAddress })
+          }
+        } catch (error) {
+          AbsLogger.error({ tag: 'default', message: `attemptConnection: Failed to resolve local address: ${error?.message}` })
+        }
+      }
+
       AbsLogger.info({ tag: 'default', message: `attemptConnection: Got server config, attempt authorize (${serverConfig.name})` })
 
       const nativeHttpOptions = {
@@ -170,6 +255,8 @@ export default {
 
       if (!authRes) {
         this.attemptingConnection = false
+        // The server may just be temporarily unreachable (tunnel hiccup, sleeping device), keep trying
+        if (!this.user) this.scheduleReconnect()
         return
       }
 
@@ -209,6 +296,7 @@ export default {
 
       this.$socket.connect(serverConnectionConfig.address, serverConnectionConfig.token)
 
+      this.clearReconnect()
       AbsLogger.info({ tag: 'default', message: `attemptConnection: Successful connection to last saved server config (${serverConnectionConfig.name})` })
       await this.initLibraries()
       this.attemptingConnection = false
@@ -336,6 +424,14 @@ export default {
         if (document.visibilityState === 'visible') {
           this.$eventBus.$emit('device-focus-update', true)
         }
+
+        // Coming back to the app: reconnect right away instead of waiting for the next retry
+        if (!this.user) {
+          this.clearReconnect()
+          this.attemptConnection()
+        } else if (!this.socketConnected) {
+          this.$socket.reconnect()
+        }
       } else {
         console.log('⛔️ [default] device visibility: does NOT have focus')
         this.timeLostFocus = Date.now()
@@ -387,6 +483,8 @@ export default {
   beforeDestroy() {
     this.$eventBus.$off('change-lang', this.changeLanguage)
     document.removeEventListener('visibilitychange', this.visibilityChanged)
+    this.clearReconnect()
+    if (this.addressTimer) clearTimeout(this.addressTimer)
     this.$socket.off('user_updated', this.userUpdated)
     this.$socket.off('user_media_progress_updated', this.userMediaProgressUpdated)
   }

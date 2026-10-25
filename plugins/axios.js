@@ -1,4 +1,40 @@
+import { CapacitorHttp } from '@capacitor/core'
+
 export default function ({ $axios, store, $db }) {
+  /**
+   * Custom headers (e.g. Cloudflare Access) must be sent on requests to the server. A browser XHR would trigger a
+   * CORS preflight that gets blocked by such proxies, so requests to the server go through native HTTP instead.
+   */
+  const nativeAdapter = async (config) => {
+    const url = $axios.getUri(config)
+    const headers = {}
+    Object.entries({ ...config.headers.common, ...config.headers[config.method], ...config.headers }).forEach(([k, v]) => {
+      if (typeof v === 'string' || typeof v === 'number') headers[k] = String(v)
+    })
+    const res = await CapacitorHttp.request({
+      method: (config.method || 'get').toUpperCase(),
+      url,
+      headers,
+      data: config.data && typeof config.data === 'string' ? JSON.parse(config.data) : config.data,
+      responseType: config.responseType === 'arraybuffer' ? 'arraybuffer' : config.responseType === 'blob' ? 'blob' : undefined,
+      connectTimeout: config.timeout || undefined
+    })
+    let data = res.data
+    if (config.responseType === 'arraybuffer' && typeof data === 'string') {
+      const bin = atob(data)
+      const bytes = new Uint8Array(bin.length)
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+      data = bytes.buffer
+    }
+    const response = { data, status: res.status, statusText: String(res.status), headers: res.headers || {}, config, request: {} }
+    if (res.status >= 200 && res.status < 300) return response
+    const error = new Error(`Request failed with status code ${res.status}`)
+    error.config = config
+    error.response = response
+    error.isAxiosError = true
+    throw error
+  }
+
   // Track if we're currently refreshing to prevent multiple refresh attempts
   let isRefreshing = false
   let failedQueue = []
@@ -41,9 +77,23 @@ export default function ({ $axios, store, $db }) {
 
   $axios.onRequest((config) => {
     console.log('[Axios] Making request to ' + config.url)
+    const customHeaders = store.state.user.serverConnectionConfig?.customHeaders
+    const hasCustomHeaders = customHeaders && Object.keys(customHeaders).length > 0
+    const applyCustomHeaders = () => {
+      Object.entries(customHeaders).forEach(([k, v]) => {
+        config.headers.common[k] = v
+      })
+      config.adapter = nativeAdapter
+    }
+
     if (config.url.startsWith('http:') || config.url.startsWith('https:') || config.url.startsWith('capacitor:')) {
+      // Absolute URLs only get the custom headers when they target the connected server
+      const serverAddress = store.getters['user/getServerAddress']
+      if (hasCustomHeaders && serverAddress && config.url.startsWith(serverAddress)) applyCustomHeaders()
       return
     }
+
+    if (hasCustomHeaders) applyCustomHeaders()
 
     const bearerToken = store.getters['user/getToken']
     if (bearerToken) {
@@ -119,6 +169,9 @@ export default function ({ $axios, store, $db }) {
 
         // Process queued requests with error
         processQueue(refreshError, null)
+
+        // Transient errors (offline, proxy/tunnel hiccup) keep the session so the next request can retry
+        if (refreshError?.transient) return Promise.reject(error)
 
         await handleRefreshFailure(store.getters['user/getServerConnectionConfigId'])
 

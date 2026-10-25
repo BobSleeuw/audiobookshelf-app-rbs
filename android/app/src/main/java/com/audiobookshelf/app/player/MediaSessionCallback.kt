@@ -76,6 +76,11 @@ class MediaSessionCallback(var playerNotificationService:PlayerNotificationServi
     playerNotificationService.skipToNext()
   }
 
+  /** A queue entry was tapped in Android Auto (a chapter, or a file) */
+  override fun onSkipToQueueItem(id: Long) {
+    playerNotificationService.skipToQueueItem(id)
+  }
+
   override fun onFastForward() {
     playerNotificationService.jumpForward()
   }
@@ -85,6 +90,11 @@ class MediaSessionCallback(var playerNotificationService:PlayerNotificationServi
   }
 
   override fun onSeekTo(pos: Long) {
+    val chapterRange = playerNotificationService.chapterRangeForProgress()
+    if (chapterRange != null) {
+      playerNotificationService.seekPlayer(chapterRange.first + pos) // the position is inside the chapter
+      return
+    }
     val currentTrackStartOffset = playerNotificationService.getCurrentTrackStartOffsetMs()
     playerNotificationService.seekPlayer(currentTrackStartOffset + pos)
   }
@@ -110,6 +120,11 @@ class MediaSessionCallback(var playerNotificationService:PlayerNotificationServi
 
   override fun onPlayFromMediaId(mediaId: String?, extras: Bundle?) {
     Log.d(tag, "ON PLAY FROM MEDIA ID $mediaId")
+    // "Try again" item of the Android Auto "server unreachable" tab
+    if (mediaId == RECONNECT_ID) {
+      playerNotificationService.retryAndroidAutoConnection("retry item tapped", true)
+      return
+    }
     val libraryItemWrapper: LibraryItemWrapper?
     var podcastEpisode: PodcastEpisode? = null
 
@@ -281,6 +296,7 @@ class MediaSessionCallback(var playerNotificationService:PlayerNotificationServi
       CUSTOM_ACTION_SKIP_FORWARD -> onSkipToNext()
       CUSTOM_ACTION_SKIP_BACKWARD -> onSkipToPrevious()
       CUSTOM_ACTION_CHANGE_SPEED -> onChangeSpeed()
+      CUSTOM_ACTION_CHANGE_BOOST -> VolumeBooster.stepAndroidAutoBoost(playerNotificationService.getContext())
     }
   }
 }

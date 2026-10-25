@@ -9,7 +9,21 @@ import { Dialog } from '@capacitor/dialog'
 
 export default {
   data() {
-    return {}
+    return { offlineConfirmed: false, offlineTimer: null }
+  },
+  watch: {
+    // A very short "no network" (the handover between Wi-Fi and mobile data) is not shown as offline
+    networkConnected: {
+      immediate: true,
+      handler(connected) {
+        clearTimeout(this.offlineTimer)
+        if (connected) {
+          this.offlineConfirmed = false
+        } else {
+          this.offlineTimer = setTimeout(() => (this.offlineConfirmed = true), 2500)
+        }
+      }
+    }
   },
   computed: {
     user() {
@@ -33,26 +47,39 @@ export default {
     attemptingConnection() {
       return this.$store.state.attemptingConnection
     },
+    /** Moving between the internal and the external address, or the network just dropped for a moment */
+    isBusy() {
+      return this.$store.state.switchingAddress || !this.networkConnected
+    },
+    /** True when the server is reached through its internal URL (home network) instead of the external URL */
+    usingInternalUrl() {
+      const config = this.$store.state.user.serverConnectionConfig
+      return !!config?.localAddress && config.address === config.localAddress
+    },
     icon() {
       if (!this.user && !this.attemptingConnection) return null // hide when not connected to server
 
       if (this.attemptingConnection) {
         return 'cloud_sync'
-      } else if (!this.networkConnected) {
+      } else if (!this.networkConnected && this.offlineConfirmed) {
         return 'wifi_off'
+      } else if (this.isBusy) {
+        return 'cloud_sync' // switching between the internal and external address, or a very short network drop
       } else if (!this.socketConnected) {
         return 'cloud_off'
       } else if (this.isCellular) {
         return 'signal_cellular_alt'
+      } else if (this.usingInternalUrl) {
+        return 'wifi'
       } else {
         return 'cloud_done'
       }
     },
     iconClass() {
-      if (!this.networkConnected) return 'text-error'
+      if (!this.networkConnected && this.offlineConfirmed) return 'text-error'
+      else if (!this.attemptingConnection && this.isBusy) return 'text-gray-200'
       else if (!this.socketConnected) return 'text-warning'
       else if (!this.isNetworkUnmetered) return 'text-yellow-400'
-      else if (this.isCellular) return 'text-gray-200'
       else return 'text-success'
     }
   },
@@ -61,12 +88,16 @@ export default {
       var msg = ''
       if (this.attemptingConnection) {
         msg = this.$strings.MessageAttemptingServerConnection
-      } else if (!this.networkConnected) {
+      } else if (!this.networkConnected && this.offlineConfirmed) {
         msg = this.$strings.MessageNoNetworkConnection
+      } else if (this.isBusy) {
+        msg = this.$strings.MessageAttemptingServerConnection
       } else if (!this.socketConnected) {
         msg = this.$strings.MessageSocketNotConnected
       } else if (this.isCellular) {
         msg = this.isNetworkUnmetered ? this.$strings.MessageSocketConnectedOverUnmeteredCellular : this.$strings.MessageSocketConnectedOverMeteredCellular
+      } else if (this.usingInternalUrl) {
+        msg = this.$strings.MessageSocketConnectedOverInternalUrl
       } else {
         msg = this.isNetworkUnmetered ? this.$strings.MessageSocketConnectedOverUnmeteredWifi : this.$strings.MessageSocketConnectedOverMeteredWifi
       }

@@ -9,6 +9,7 @@ import com.audiobookshelf.app.device.DeviceManager
 import com.audiobookshelf.app.media.MediaEventManager
 import com.audiobookshelf.app.server.ApiHandler
 import com.audiobookshelf.app.managers.SecureStorage
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.core.json.JsonReadFeature
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
@@ -30,6 +31,7 @@ class AbsDatabase : Plugin() {
   data class LocalMediaProgressPayload(val value:List<LocalMediaProgress>)
   data class LocalLibraryItemsPayload(val value:List<LocalLibraryItem>)
   data class LocalFoldersPayload(val value:List<LocalFolder>)
+  @JsonIgnoreProperties(ignoreUnknown = true)
   data class ServerConnConfigPayload(val id:String?, val index:Int, val name:String?, val userId:String, val username:String, var version:String, val token:String, val refreshToken:String?, val address:String?, val customHeaders:Map<String,String>?)
 
   override fun load() {
@@ -180,6 +182,49 @@ class AbsDatabase : Plugin() {
       DeviceManager.serverConnectionConfig = serverConnectionConfig
       call.resolve(JSObject(jacksonMapper.writeValueAsString(DeviceManager.serverConnectionConfig)))
     }
+  }
+
+  /**
+   * Updates the address in use and/or the local network settings of a saved server, without touching the login.
+   * Accepts: id, address, remoteAddress (only applied when empty or userEdit is true), userEdit, alias (empty clears), localAddress (empty clears), localSsids (array), customHeaders
+   */
+  @PluginMethod
+  fun updateServerAddresses(call: PluginCall) {
+    val id = call.getString("id")
+    val config = DeviceManager.deviceData.serverConnectionConfigs.find { it.id == id }
+    if (config == null) {
+      call.reject("Server connection config not found")
+      return
+    }
+    val data = call.data
+    if (data.has("address")) call.getString("address")?.takeIf { it.isNotBlank() }?.let { config.address = it }
+    // The external URL is only set once (when empty) or when the user edits it (userEdit). The app itself
+    // must never overwrite it, e.g. with the internal URL that is in use on the home network.
+    val userEdit = call.getBoolean("userEdit", false) ?: false
+    var remoteChanged = false
+    if (data.has("remoteAddress") && (userEdit || config.remoteAddress == null)) {
+      config.remoteAddress = call.getString("remoteAddress")?.takeIf { it.isNotBlank() }
+      remoteChanged = true
+    }
+    if (data.has("alias")) config.alias = call.getString("alias")?.trim()?.takeIf { it.isNotEmpty() }
+    if (data.has("customHeaders")) {
+      val headers = mutableMapOf<String, String>()
+      call.getObject("customHeaders")?.let { obj ->
+        obj.keys().forEach { key -> if (key.isNotBlank()) headers[key] = obj.getString(key) ?: "" }
+      }
+      config.customHeaders = headers
+    }
+    if (config.remoteAddress != null && remoteChanged) config.name = "${config.remoteAddress} (${config.username})"
+    if (data.has("localAddress")) config.localAddress = call.getString("localAddress")?.takeIf { it.isNotBlank() }
+    if (data.has("localSsids")) {
+      val ssids = mutableListOf<String>()
+      call.getArray("localSsids")?.let { arr ->
+        for (i in 0 until arr.length()) arr.optString(i)?.trim()?.takeIf { it.isNotEmpty() }?.let { ssids.add(it) }
+      }
+      config.localSsids = ssids
+    }
+    DeviceManager.dbManager.saveDeviceData(DeviceManager.deviceData)
+    call.resolve(JSObject(jacksonMapper.writeValueAsString(config)))
   }
 
   @PluginMethod

@@ -171,6 +171,13 @@ object DeviceManager {
     return false
   }
 
+  /** True when the phone is on Wi-Fi or ethernet (so a server on the local network could be reachable). */
+  fun isOnLocalNetwork(ctx: Context): Boolean {
+    val connectivityManager = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    val capabilities = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork) ?: return false
+    return capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) || capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+  }
+
   /**
    * Sets the last playback session.
    * @param playbackSession The playback session to set.

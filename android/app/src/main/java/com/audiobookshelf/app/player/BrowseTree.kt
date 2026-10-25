@@ -6,12 +6,14 @@ import android.util.Log
 import com.audiobookshelf.app.R
 import com.audiobookshelf.app.data.*
 import com.audiobookshelf.app.media.getUriToDrawable
+import com.audiobookshelf.app.settings.RbsSettingsStore
 
 class BrowseTree(
   val context: Context,
   itemsInProgress: List<ItemInProgress>,
   libraries: List<Library>,
-  recentsLoaded: Boolean
+  recentsLoaded: Boolean,
+  serverUnreachable: Boolean = false
 ) {
   private val mediaIdToChildren = mutableMapOf<String, MutableList<MediaMetadataCompat>>()
 
@@ -74,6 +76,15 @@ class BrowseTree(
 
     rootList += downloadsMetadata
 
+    // The server library could not be loaded: a tab that explains it and lets the user retry from the car
+    if (serverUnreachable) {
+      rootList += MediaMetadataCompat.Builder().apply {
+        putString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID, RECONNECT_ROOT)
+        putString(MediaMetadataCompat.METADATA_KEY_TITLE, "Server unreachable")
+        putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, getUriToDrawable(context, R.drawable.ic_server_unreachable).toString())
+      }.build()
+    }
+
     mediaIdToChildren[AUTO_BROWSE_ROOT] = rootList
   }
 
@@ -85,3 +96,12 @@ const val CONTINUE_ROOT = "__CONTINUE__"
 const val DOWNLOADS_ROOT = "__DOWNLOADS__"
 const val LIBRARIES_ROOT = "__LIBRARIES__"
 const val RECENTLY_ROOT = "__RECENTLY__"
+
+/** Icon resource for a boost level in dB: ic_boost_0 (off) to ic_boost_10 (+20 dB), one per 2 dB. */
+private val BOOST_ICONS = listOf(
+  R.drawable.ic_boost_0, R.drawable.ic_boost_1, R.drawable.ic_boost_2, R.drawable.ic_boost_3,
+  R.drawable.ic_boost_4, R.drawable.ic_boost_5, R.drawable.ic_boost_6, R.drawable.ic_boost_7,
+  R.drawable.ic_boost_8, R.drawable.ic_boost_9, R.drawable.ic_boost_10
+)
+
+fun boostIcon(db: Int): Int = BOOST_ICONS[VolumeBooster.levelIndex(db).coerceIn(0, BOOST_ICONS.size - 1)]

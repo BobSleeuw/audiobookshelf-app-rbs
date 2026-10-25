@@ -61,6 +61,13 @@ class LibraryItem(
     return Uri.parse("${DeviceManager.serverAddress}/api/items/$id/cover?token=${DeviceManager.token}")
   }
 
+  /** Cover address for Android Auto (ABS-RBS aa-cover-art): the app serves the cover, the car cannot send the custom headers. */
+  @JsonIgnore
+  fun getCarCoverUri(): Uri {
+    if (media.coverPath == null) return getCoverUri()
+    return com.audiobookshelf.app.media.CoverProvider.serverItemUri(id)
+  }
+
   @JsonIgnore
   fun checkHasTracks():Boolean {
     return media.checkHasTracks()
@@ -152,7 +159,7 @@ class LibraryItem(
     return MediaDescriptionCompat.Builder()
       .setMediaId(mediaId)
       .setTitle(itemTitle)
-      .setIconUri(getCoverUri())
+      .setIconUri(getCarCoverUri())
       .setSubtitle(subtitle)
       .setExtras(extras)
       .build()

@@ -31,6 +31,20 @@ export const getters = {
   getServerAddress: (state) => {
     return state.serverConnectionConfig?.address || null
   },
+  /**
+   * True when a downloaded item (local library item) belongs to the server that is connected now.
+   * A server can have an internal and an external address and the app switches between them, so the saved
+   * address is compared with both, and the server entry in the server list is compared as well.
+   */
+  isSameServer: (state) => (item) => {
+    const config = state.serverConnectionConfig
+    if (!item || !config) return false
+    if (item.serverConnectionConfigId && item.serverConnectionConfigId === config.id) return true
+    const normalize = (address) => (address || '').trim().replace(/\/+$/, '').toLowerCase()
+    const saved = normalize(item.serverAddress)
+    if (!saved) return false
+    return [config.address, config.remoteAddress, config.localAddress].some((address) => normalize(address) === saved)
+  },
   getServerConfigName: (state) => {
     return state.serverConnectionConfig?.name || null
   },
@@ -176,18 +190,30 @@ export const actions = {
 
     const serverAddress = getters.getServerAddress
 
-    const response = await CapacitorHttp.post({
-      url: `${serverAddress}/auth/refresh`,
-      headers: {
-        'Content-Type': 'application/json',
-        'x-refresh-token': refreshToken
-      },
-      data: {}
-    })
+    let response
+    try {
+      response = await CapacitorHttp.post({
+        url: `${serverAddress}/auth/refresh`,
+        headers: {
+          ...(state.serverConnectionConfig?.customHeaders || {}),
+          'Content-Type': 'application/json',
+          'x-refresh-token': refreshToken
+        },
+        data: {}
+      })
+    } catch (error) {
+      // Offline/timeout/proxy errors are transient and must not log the user out
+      const transientError = new Error(error?.message || 'Token refresh request failed')
+      transientError.transient = true
+      throw transientError
+    }
 
     if (response.status !== 200) {
       console.error('[user] Token refresh request failed:', response.status)
-      return null
+      if (response.status === 401 || response.status === 403) return null
+      const transientError = new Error(`Token refresh failed with status ${response.status}`)
+      transientError.transient = true
+      throw transientError
     }
 
     const userResponseData = response.data

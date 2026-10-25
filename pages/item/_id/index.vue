@@ -38,7 +38,7 @@
 
         <div v-if="hasLocal" class="mx-1">
           <div v-if="currentServerConnectionConfigId && !isLocalMatchingServerAddress" class="w-full rounded-md bg-warning/10 border border-warning p-4">
-            <p class="text-sm">{{ $getString('MessageMediaLinkedToADifferentServer', [localLibraryItem.serverAddress]) }}</p>
+            <p class="text-sm">{{ $getString('MessageMediaLinkedToADifferentServer', [localLibraryItemServerName]) }}</p>
           </div>
           <div v-else-if="currentServerConnectionConfigId && !isLocalMatchingUser" class="w-full rounded-md bg-warning/10 border border-warning p-4">
             <p class="text-sm">{{ $strings.MessageMediaLinkedToADifferentUser }}</p>
@@ -190,7 +190,7 @@ export default {
       if (libraryItem?.libraryItemId?.startsWith('li_')) {
         // Detect old library item id
         console.error('Local library item has old server library item id', libraryItem.libraryItemId)
-      } else if (query.noredirect !== '1' && libraryItem?.libraryItemId && libraryItem?.serverAddress === store.getters['user/getServerAddress'] && store.state.socketConnected) {
+      } else if (query.noredirect !== '1' && libraryItem?.libraryItemId && store.getters['user/isSameServer'](libraryItem) && store.state.socketConnected) {
         const queryParams = new URLSearchParams()
         queryParams.set('localLibraryItemId', libraryItemId)
         if (libraryItem.mediaType === 'podcast') {
@@ -258,7 +258,7 @@ export default {
       if (!this.isLocal) return this.libraryItem.id
       // Check if local library item is connected to the current server
       if (!this.libraryItem.serverAddress || !this.libraryItem.libraryItemId) return null
-      if (this.currentServerAddress === this.libraryItem.serverAddress) {
+      if (this.$store.getters['user/isSameServer'](this.libraryItem)) {
         return this.libraryItem.libraryItemId
       }
       return null
@@ -273,11 +273,18 @@ export default {
       return this.$store.getters['user/getServerConnectionConfigId']
     },
     /**
-     * User is currently connected to a server and this local library item has the same server address
+     * User is currently connected to a server and this local library item belongs to it
+     * (the internal or the external address of the server, or the same entry in the server list)
      */
     isLocalMatchingServerAddress() {
       if (!this.localLibraryItem || !this.currentServerAddress) return false
-      return this.localLibraryItem.serverAddress === this.currentServerAddress
+      return this.$store.getters['user/isSameServer'](this.localLibraryItem)
+    },
+    /** Name of the server the local library item is linked to: the alias, else the address; the saved address when the server entry is gone */
+    localLibraryItemServerName() {
+      const configs = this.$store.state.deviceData?.serverConnectionConfigs || []
+      const config = configs.find((c) => c.id === this.localLibraryItem?.serverConnectionConfigId)
+      return config ? config.alias || config.remoteAddress || config.address : this.localLibraryItem?.serverAddress
     },
     /**
      * User is currently connected to a server and this local library item has the same user id
@@ -290,7 +297,9 @@ export default {
      * User is currently connected to a server and this local library item has the same connection config id
      */
     isLocalMatchingConnectionConfig() {
-      if (!this.localLibraryItemServerConnectionConfigId || !this.currentServerConnectionConfigId) return false
+      if (!this.currentServerConnectionConfigId) return false
+      // An old download without a server entry is fine when it belongs to the connected server
+      if (!this.localLibraryItemServerConnectionConfigId) return this.isLocalMatchingServerAddress
       return this.localLibraryItemServerConnectionConfigId === this.currentServerConnectionConfigId
     },
     bookCoverAspectRatio() {

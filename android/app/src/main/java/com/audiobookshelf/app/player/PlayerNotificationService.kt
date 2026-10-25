@@ -1,7 +1,10 @@
 package com.audiobookshelf.app.player
 
+import com.audiobookshelf.app.server.CustomHeaders
+import com.audiobookshelf.app.settings.RbsSettingsStore
 import android.annotation.SuppressLint
 import android.app.*
+import android.content.pm.ServiceInfo
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -42,6 +45,12 @@ import com.audiobookshelf.app.plugins.AbsLogger
 import com.audiobookshelf.app.server.ApiHandler
 import com.google.android.exoplayer2.*
 import com.google.android.exoplayer2.audio.AudioAttributes
+import com.google.android.exoplayer2.audio.AudioCapabilities
+import com.google.android.exoplayer2.audio.AudioProcessor
+import com.google.android.exoplayer2.audio.AudioSink
+import com.google.android.exoplayer2.audio.DefaultAudioSink
+import com.google.android.exoplayer2.audio.SilenceSkippingAudioProcessor
+import com.google.android.exoplayer2.audio.SonicAudioProcessor
 import com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector
 import com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector.CustomActionProvider
 import com.google.android.exoplayer2.ext.mediasession.TimelineQueueNavigator
@@ -73,6 +82,10 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
     var isUnmeteredNetwork = false
     var hasNetworkConnectivity = false // Not 100% reliable has internet
     var isSwitchingPlayer = false // Used when switching between cast player and exoplayer
+    const val ACTION_BLUETOOTH_AUTOPLAY = "com.rbs.abs.action.BLUETOOTH_AUTOPLAY"
+
+    /** Called when a skip silence setting was changed in the app settings */
+    var skipSilenceChanged: (() -> Unit)? = null
   }
 
   private val tag = "PlayerNotificationServ"
@@ -168,6 +181,20 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
     isStarted = true
     Log.d(tag, "onStartCommand $startId")
 
+    if (intent?.action == ACTION_BLUETOOTH_AUTOPLAY) {
+      // The Bluetooth device needs a moment before it can output audio, wait before starting playback
+      val delayMs = RbsSettingsStore.bluetoothDelaySeconds(this) * 1000L
+      AbsLogger.info(tag, "Bluetooth auto play: starting playback in ${delayMs}ms")
+      showResumingForegroundNotification()
+      Handler(Looper.getMainLooper()).postDelayed({
+        resumeLastPlaybackSession()
+        // Drop the placeholder notification if nothing started playing
+        Handler(Looper.getMainLooper()).postDelayed({
+          if (currentPlaybackSession == null) stopForeground(true)
+        }, 20000)
+      }, delayMs)
+    }
+
     return START_STICKY
   }
 
@@ -197,6 +224,10 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
     }
 
     Log.d(tag, "onDestroy")
+    VolumeBooster.onChanged = null
+    skipSilenceChanged = null
+    chapterWatcherHandler.removeCallbacks(chapterWatcher)
+    VolumeBooster.release()
     isStarted = false
     isClosed = true
     DeviceManager.widgetUpdater?.onPlayerChanged(this)
@@ -308,14 +339,34 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
     // player's own state on media item transitions/timeline changes, dropping the cover art
     // bitmap that PlaybackSession.resolveCoverBitmapAsync resolves separately.
     mediaSessionConnector.setMediaMetadataProvider { _ ->
-      currentPlaybackSession?.getMediaMetadataCompat(ctx) ?: MediaMetadataCompat.Builder().build()
+      val metadata = currentPlaybackSession?.getMediaMetadataCompat(ctx) ?: MediaMetadataCompat.Builder().build()
+      val chapterRange = chapterRangeForProgress()
+      if (chapterRange == null) {
+        metadata
+      } else {
+        // The length shown in the notification and Android Auto is that of the chapter
+        MediaMetadataCompat.Builder(metadata).putLong(MediaMetadataCompat.METADATA_KEY_DURATION, chapterRange.second - chapterRange.first).build()
+      }
     }
-    val queueNavigator: TimelineQueueNavigator =
+    val timelineNavigator: TimelineQueueNavigator =
             object : TimelineQueueNavigator(mediaSession) {
               override fun getSupportedQueueNavigatorActions(player: Player): Long {
-                return PlaybackStateCompat.ACTION_PLAY_PAUSE or
+                var actions = PlaybackStateCompat.ACTION_PLAY_PAUSE or
                         PlaybackStateCompat.ACTION_PLAY or
                         PlaybackStateCompat.ACTION_PAUSE
+                // Books with chapters get next / previous chapter buttons (Android Auto shows them as the track buttons)
+                if (currentPlaybackSession?.chapters?.isNotEmpty() == true) {
+                  actions = actions or PlaybackStateCompat.ACTION_SKIP_TO_NEXT or PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
+                }
+                return actions
+              }
+
+              override fun onSkipToNext(player: Player) {
+                skipToNext()
+              }
+
+              override fun onSkipToPrevious(player: Player) {
+                skipToPrevious()
               }
 
               override fun getMediaDescription(
@@ -369,20 +420,62 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
                                 .setTitle(currentPlaybackSession!!.displayTitle)
 
                 bitmap?.let { mediaDescriptionBuilder.setIconBitmap(it) }
-                  ?: mediaDescriptionBuilder.setIconUri(coverUri)
+                  ?: mediaDescriptionBuilder.setIconUri(currentPlaybackSession!!.getCarCoverUri(ctx))
 
                 return mediaDescriptionBuilder.build()
               }
             }
 
     setMediaSessionConnectorPlaybackActions()
-    mediaSessionConnector.setQueueNavigator(queueNavigator)
+    mediaSessionConnector.setQueueNavigator(ChapterQueueNavigator(mediaSession, timelineNavigator, this))
     mediaSessionConnector.setPlaybackPreparer(MediaSessionPlaybackPreparer(this))
 
     mediaSession.setCallback(MediaSessionCallback(this))
 
     initializeMPlayer()
     currentPlayer = mPlayer
+  }
+
+  // Tells the notification and Android Auto when playback moves into another chapter (new chapter length and position)
+  private var lastChapterStartMs = -1L
+  private val chapterWatcherHandler = Handler(Looper.getMainLooper())
+  private val chapterWatcher = object : Runnable {
+    override fun run() {
+      try {
+        val start = chapterRangeForProgress()?.first ?: -1L
+        if (start != lastChapterStartMs) {
+          lastChapterStartMs = start
+          mediaSessionConnector.invalidateMediaSessionMetadata()
+          mediaSessionConnector.invalidateMediaSessionPlaybackState()
+        }
+      } catch (e: Exception) {
+        Log.e(tag, "Chapter watcher failed: ${e.message}")
+      }
+      chapterWatcherHandler.postDelayed(this, 1000)
+    }
+  }
+
+  private var skipSilenceBuiltMaxMs = RbsSettingsStore.DEFAULT_SKIP_SILENCE_MS
+
+  /** The skip silence switch changed: applies to the playing player right away. */
+  private fun applySkipSilenceSettings() {
+    Handler(Looper.getMainLooper()).post {
+      if (this::mPlayer.isInitialized) mPlayer.skipSilenceEnabled = RbsSettingsStore.skipSilenceEnabled(ctx)
+    }
+  }
+
+  /**
+   * The longest pause setting is part of the player's audio sink, so a new length needs a new player. This is done
+   * when the next book is prepared, never while something is playing or while casting.
+   */
+  private fun rebuildPlayerForSkipSilence() {
+    if (RbsSettingsStore.skipSilenceMaxMs(ctx) == skipSilenceBuiltMaxMs) return
+    if (mPlayer.isPlaying || currentPlayer != mPlayer) return
+    AbsLogger.info(tag, "rebuildPlayerForSkipSilence: New pause length ${RbsSettingsStore.skipSilenceMaxMs(ctx)} ms, creating the player again")
+    val oldPlayer = mPlayer
+    initializeMPlayer()
+    currentPlayer = mPlayer
+    oldPlayer.release()
   }
 
   private fun initializeMPlayer() {
@@ -396,14 +489,66 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
                     )
                     .build()
 
+    // ABS-RBS (skip-silence): the audio sink gets a silence skipping processor that keeps pauses up to the chosen
+    // length and cuts longer pauses down to it. Silence is anything quieter than about -42 dB. The length is part
+    // of the processor, so a new length is used when the player is created again (see rebuildPlayerForSkipSilence).
+    val skipSilenceMaxMs = RbsSettingsStore.skipSilenceMaxMs(ctx)
+    skipSilenceBuiltMaxMs = skipSilenceMaxMs
+    val renderersFactory =
+            object : DefaultRenderersFactory(this) {
+              override fun buildAudioSink(
+                      context: Context,
+                      enableFloatOutput: Boolean,
+                      enableAudioTrackPlaybackParams: Boolean,
+                      enableOffload: Boolean
+              ): AudioSink? {
+                val silenceProcessor = SilenceSkippingAudioProcessor(skipSilenceMaxMs * 1000L, skipSilenceMaxMs * 500L, 256.toShort())
+                val processorChain = DefaultAudioSink.DefaultAudioProcessorChain(arrayOf<AudioProcessor>(), silenceProcessor, SonicAudioProcessor())
+                return DefaultAudioSink.Builder()
+                        .setAudioCapabilities(AudioCapabilities.getCapabilities(context))
+                        .setAudioProcessorChain(processorChain)
+                        .setEnableFloatOutput(enableFloatOutput)
+                        .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                        .setOffloadMode(
+                                if (enableOffload) DefaultAudioSink.OFFLOAD_MODE_ENABLED_GAPLESS_REQUIRED
+                                else DefaultAudioSink.OFFLOAD_MODE_DISABLED
+                        )
+                        .build()
+              }
+            }
+
     mPlayer =
-            ExoPlayer.Builder(this)
+            ExoPlayer.Builder(this, renderersFactory)
                     .setLoadControl(customLoadControl)
                     .setSeekBackIncrementMs(deviceSettings.jumpBackwardsTimeMs)
                     .setSeekForwardIncrementMs(deviceSettings.jumpForwardTimeMs)
                     .build()
     mPlayer.setHandleAudioBecomingNoisy(true)
+    mPlayer.skipSilenceEnabled = RbsSettingsStore.skipSilenceEnabled(ctx)
+    skipSilenceChanged = { applySkipSilenceSettings() }
     mPlayer.addListener(PlayerListener(this))
+    mPlayer.addListener(object : Player.Listener {
+      override fun onAudioSessionIdChanged(audioSessionId: Int) {
+        VolumeBooster.attach(ctx, audioSessionId)
+      }
+    })
+    VolumeBooster.startMonitoring(ctx)
+    chapterWatcherHandler.removeCallbacks(chapterWatcher)
+    chapterWatcherHandler.post(chapterWatcher)
+    VolumeBooster.onChanged = {
+      // Refresh the Android Auto boost button and menu
+      Handler(Looper.getMainLooper()).post {
+        try {
+          mediaSessionConnector.invalidateMediaSessionMetadata()
+          mediaSessionConnector.invalidateMediaSessionQueue()
+          mediaSessionConnector.invalidateMediaSessionPlaybackState()
+          notifyChildrenChanged(AUTO_MEDIA_ROOT)
+        } catch (e: Exception) {
+          Log.e(tag, "Failed to refresh boost UI: ${e.message}")
+        }
+      }
+    }
+    VolumeBooster.attach(ctx, mPlayer.audioSessionId)
     val audioAttributes: AudioAttributes =
             AudioAttributes.Builder()
                     .setUsage(C.USAGE_MEDIA)
@@ -414,7 +559,7 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
     // attach player to playerNotificationManager
     playerNotificationManager.setPlayer(mPlayer)
 
-    mediaSessionConnector.setPlayer(mPlayer)
+    mediaSessionConnector.setPlayer(ChapterProgressPlayer(mPlayer, this))
   }
 
   /*
@@ -431,6 +576,8 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
         ContextCompat.startForegroundService(ctx, intent)
       }
     }
+
+    rebuildPlayerForSkipSilence()
 
     // TODO: When an item isFinished the currentTime should be reset to 0
     //        will reset the time if currentTime is within 5s of duration (for android auto)
@@ -463,7 +610,7 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
 
     if (playbackSession.mediaPlayer == PLAYER_CAST) {
       // If cast-player is the first player to be used
-      mediaSessionConnector.setPlayer(castPlayer)
+      mediaSessionConnector.setPlayer(castPlayer?.let { ChapterProgressPlayer(it, this) })
       playerNotificationManager.setPlayer(castPlayer)
     }
 
@@ -478,6 +625,7 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
               mediaSessionConnector.invalidateMediaSessionMetadata()
             }
     mediaSessionConnector.invalidateMediaSessionMetadata()
+    mediaSessionConnector.invalidateMediaSessionQueue()
 
     AbsLogger.info("PlayerNotificationService", "preparePlayer: Started playback session for item ${currentPlaybackSession?.mediaItemId}. MediaPlayer ${currentPlaybackSession?.mediaPlayer}")
     // Notify client
@@ -525,6 +673,7 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
         }
 
         dataSourceFactory.setUserAgent(channelId)
+        dataSourceFactory.setDefaultRequestProperties(CustomHeaders.forActiveServer())
         mediaSource =
                 ProgressiveMediaSource.Factory(dataSourceFactory, extractorsFactory)
                         .createMediaSource(mediaItems[0])
@@ -533,7 +682,7 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
         val dataSourceFactory = DefaultHttpDataSource.Factory()
         dataSourceFactory.setUserAgent(channelId)
         dataSourceFactory.setDefaultRequestProperties(
-                hashMapOf("Authorization" to "Bearer ${DeviceManager.token}")
+                CustomHeaders.forActiveServer() + hashMapOf("Authorization" to "Bearer ${DeviceManager.token}")
         )
         mediaSource = HlsMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItems[0])
       }
@@ -586,9 +735,10 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
             mutableListOf(
                     JumpBackwardCustomActionProvider(),
                     JumpForwardCustomActionProvider(),
-                    ChangePlaybackSpeedCustomActionProvider() // Will be pushed to far left
+                    ChangePlaybackSpeedCustomActionProvider(), // Will be pushed to far left
+                    ChangeBoostCustomActionProvider()
             )
-    if (playbackSession.mediaPlayer != PLAYER_CAST && mediaItems.size > 1) {
+    if (playbackSession.mediaPlayer != PLAYER_CAST && mediaItems.size > 1 && playbackSession.chapters.isEmpty()) {
       customActionProviders.addAll(
               listOf(
                       SkipBackwardCustomActionProvider(),
@@ -730,13 +880,13 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
     currentPlayer =
             if (useCastPlayer) {
               Log.d(tag, "switchToPlayer: Using Cast Player " + castPlayer?.deviceInfo)
-              mediaSessionConnector.setPlayer(castPlayer)
+              mediaSessionConnector.setPlayer(castPlayer?.let { ChapterProgressPlayer(it, this) })
               playerNotificationManager.setPlayer(castPlayer)
               setMediaSessionToCastVolume()
               castPlayer as CastPlayer
             } else {
               Log.d(tag, "switchToPlayer: Using ExoPlayer")
-              mediaSessionConnector.setPlayer(mPlayer)
+              mediaSessionConnector.setPlayer(ChapterProgressPlayer(mPlayer, this))
               playerNotificationManager.setPlayer(mPlayer)
               setMediaSessionToLocalVolume()
               mPlayer
@@ -790,6 +940,63 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
     } else {
       0
     }
+  }
+
+  /**
+   * Start and end (ms in the whole book) of the chapter that the notification and Android Auto show as progress,
+   * or null to show the whole book (setting, no chapters, or no playback).
+   */
+  fun chapterRangeForProgress(): Pair<Long, Long>? {
+    // Android Auto has its own setting; the notification is used everywhere else
+    val mode = if (VolumeBooster.carConnected) RbsSettingsStore.androidAutoProgressMode(ctx) else RbsSettingsStore.progressMode(ctx)
+    if (mode != RbsSettingsStore.PROGRESS_CHAPTER) return null
+    val session = currentPlaybackSession ?: return null
+    if (session.chapters.isEmpty()) return null
+    val chapter = session.getChapterForTime(getCurrentTime()) ?: return null
+    if (chapter.endMs <= chapter.startMs) return null
+    return Pair(chapter.startMs, chapter.endMs)
+  }
+
+  fun getBufferedTimeMs(): Long = getBufferedTime()
+
+  /** True when the Android Auto queue lists the chapters (setting) and the book has chapters. */
+  fun chapterQueueActive(): Boolean {
+    return RbsSettingsStore.androidAutoQueueMode(ctx) == RbsSettingsStore.QUEUE_CHAPTERS && currentPlaybackSession?.chapters?.isNotEmpty() == true
+  }
+
+  /** Index of the chapter that is playing now (0 when unknown). */
+  fun currentChapterIndex(): Int {
+    val session = currentPlaybackSession ?: return 0
+    val chapter = session.getChapterForTime(getCurrentTime()) ?: return 0
+    return session.chapters.indexOf(chapter).coerceAtLeast(0)
+  }
+
+  /** The chapters as queue entries for Android Auto. */
+  fun chapterQueueItems(): List<MediaSessionCompat.QueueItem> {
+    val chapters = currentPlaybackSession?.chapters ?: return emptyList()
+    return chapters.mapIndexed { index, chapter ->
+      val totalSeconds = (chapter.startMs / 1000).toInt()
+      val hours = totalSeconds / 3600
+      val minutes = (totalSeconds % 3600) / 60
+      val seconds = totalSeconds % 60
+      val start = if (hours > 0) String.format("%d:%02d:%02d", hours, minutes, seconds) else String.format("%d:%02d", minutes, seconds)
+      val description = MediaDescriptionCompat.Builder()
+        .setMediaId("chapter-$index")
+        .setTitle(chapter.title ?: "Chapter ${index + 1}")
+        .setSubtitle(start)
+        .build()
+      MediaSessionCompat.QueueItem(description, index.toLong())
+    }
+  }
+
+  fun skipToChapter(index: Int) {
+    val chapter = currentPlaybackSession?.chapters?.getOrNull(index) ?: return
+    seekPlayer(chapter.startMs)
+  }
+
+  /** An entry of the Android Auto queue was tapped. */
+  fun skipToQueueItem(id: Long) {
+    if (chapterQueueActive()) skipToChapter(id.toInt()) else currentPlayer.seekTo(id.toInt(), 0)
   }
 
   fun getCurrentTime(): Long {
@@ -947,6 +1154,70 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
     return false
   }
 
+  /**
+   * Android requires a foreground service started from the background to show a notification within seconds,
+   * which is before the delayed Bluetooth auto play begins. The player notification replaces this one (same id).
+   */
+  private fun showResumingForegroundNotification() {
+    try {
+      val notification = NotificationCompat.Builder(this, channelId)
+              .setSmallIcon(R.drawable.icon_monochrome)
+              .setContentTitle(getString(R.string.app_name))
+              .setContentText("Resuming playback…")
+              .setPriority(NotificationCompat.PRIORITY_LOW)
+              .setOngoing(true)
+              .build()
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        startForeground(notificationId, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+      } else {
+        startForeground(notificationId, notification)
+      }
+    } catch (e: Exception) {
+      Log.e(tag, "Failed to show resuming notification: ${e.message}")
+    }
+  }
+
+  /**
+   * Starts playing the book that was last played. Used when a Bluetooth device enabled for auto play connects.
+   * Resumes the open session if there is one, otherwise rebuilds one from the last saved playback session.
+   */
+  fun resumeLastPlaybackSession() {
+    if (currentPlaybackSession != null) {
+      AbsLogger.info("PlayerNotificationService", "resumeLastPlaybackSession: Playing current session")
+      play()
+      return
+    }
+
+    val last = DeviceManager.deviceData.lastPlaybackSession
+    if (last == null) {
+      AbsLogger.info("PlayerNotificationService", "resumeLastPlaybackSession: No previous playback session")
+      return
+    }
+    val rate = mediaManager.getSavedPlaybackRate()
+
+    if (last.isLocal) {
+      AbsLogger.info("PlayerNotificationService", "resumeLastPlaybackSession: Resuming local session ${last.displayTitle}")
+      preparePlayer(last, true, rate)
+      return
+    }
+
+    val config = DeviceManager.deviceData.serverConnectionConfigs.find { it.id == last.serverConnectionConfigId }
+    val libraryItemId = last.libraryItemId
+    if (config == null || libraryItemId.isNullOrEmpty()) {
+      AbsLogger.info("PlayerNotificationService", "resumeLastPlaybackSession: Server for last session not found")
+      return
+    }
+    DeviceManager.serverConnectionConfig = config
+    AbsLogger.info("PlayerNotificationService", "resumeLastPlaybackSession: Requesting session for ${last.displayTitle}")
+    apiHandler.playLibraryItem(libraryItemId, last.episodeId, getPlayItemRequestPayload(false)) { session ->
+      if (session == null) {
+        AbsLogger.error("PlayerNotificationService", "resumeLastPlaybackSession: Failed to start session")
+      } else {
+        Handler(Looper.getMainLooper()).post { preparePlayer(session, true, rate) }
+      }
+    }
+  }
+
   fun play() {
     if (currentPlayer.isPlaying) {
       Log.d(tag, "Already playing")
@@ -992,11 +1263,28 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
     }
   }
 
+  /** Previous chapter (or the start of this chapter when already a few seconds into it); previous track without chapters. */
   fun skipToPrevious() {
+    val session = currentPlaybackSession
+    if (session != null && session.chapters.isNotEmpty()) {
+      val time = getCurrentTime()
+      val chapter = session.getChapterForTime(time)
+      val target =
+              if (chapter != null && time - chapter.startMs > 3000) chapter.startMs
+              else session.chapters.lastOrNull { it.startMs < (chapter?.startMs ?: time) }?.startMs ?: 0L
+      seekPlayer(target)
+      return
+    }
     currentPlayer.seekToPrevious()
   }
 
+  /** Next chapter; next track without chapters. */
   fun skipToNext() {
+    val session = currentPlaybackSession
+    if (session != null && session.chapters.isNotEmpty()) {
+      session.getNextChapterForTime(getCurrentTime())?.let { seekPlayer(it.startMs) }
+      return
+    }
     currentPlayer.seekToNext()
   }
 
@@ -1157,6 +1445,39 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
     }
   }
 
+  // ABS-RBS: Android Auto could not load the server library (no network yet, server unreachable). The browse tree
+  // then only has the downloads, so retry by itself for about 3 minutes, again when the network changes, and from
+  // the "Server unreachable" tab in the car.
+  private val androidAutoRetryHandler = Handler(Looper.getMainLooper())
+  private val androidAutoRetryDelaysMs = longArrayOf(3000, 6000, 12000, 20000, 30000, 45000, 60000)
+  private var androidAutoRetryIndex = 0
+
+  /** A server is saved but its libraries are not loaded (so Android Auto only shows the downloads). */
+  fun androidAutoServerUnreachable(): Boolean {
+    return !DeviceManager.deviceData.lastServerConnectionConfigId.isNullOrBlank() && mediaManager.serverLibraries.isEmpty()
+  }
+
+  /** Loads the server library for Android Auto again; the list is refreshed when it is done. */
+  fun retryAndroidAutoConnection(reason: String, manual: Boolean = false) {
+    if (!isBrowseTreeInitialized() || !firstLoadDone || !androidAutoServerUnreachable()) return
+    if (manual) androidAutoRetryIndex = 0
+    AbsLogger.info(tag, "retryAndroidAutoConnection: $reason")
+    forceReloadingAndroidAuto = true
+    notifyChildrenChanged("/")
+  }
+
+  private fun scheduleAndroidAutoRetries() {
+    androidAutoRetryHandler.removeCallbacksAndMessages(null)
+    if (androidAutoRetryIndex >= androidAutoRetryDelaysMs.size) {
+      AbsLogger.info(tag, "scheduleAndroidAutoRetries: Stopped retrying, the server could not be reached")
+      return
+    }
+    val delay = androidAutoRetryDelaysMs[androidAutoRetryIndex++]
+    androidAutoRetryHandler.postDelayed({
+      if (androidAutoServerUnreachable()) retryAndroidAutoConnection("automatic retry $androidAutoRetryIndex")
+    }, delay)
+  }
+
   private fun onBrowseTreeInitialized()
   {
     // Called after browseTree is assigned for the first time
@@ -1195,6 +1516,10 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
       }
 
       isAndroidAuto = true
+      if (clientPackageName == ANDROID_AUTO_PKG_NAME || clientPackageName == ANDROID_AUTO_SIMULATOR_PKG_NAME) {
+        VolumeBooster.projectionBrowsing = true
+        VolumeBooster.refresh()
+      }
 
       val extras = Bundle()
       extras.putBoolean(MediaConstants.BROWSER_SERVICE_EXTRAS_KEY_SEARCH_SUPPORTED, true)
@@ -1219,13 +1544,40 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
 
     result.detach()
 
+    // "Server unreachable" tab: opening it tries to connect again, the list has one item to try again
+    if (parentMediaId == RECONNECT_ROOT) {
+      retryAndroidAutoConnection("reconnect tab opened", true)
+      val description = MediaDescriptionCompat.Builder()
+              .setMediaId(RECONNECT_ID)
+              .setTitle("Try to connect now")
+              .setSubtitle("The server could not be reached. Trying again... tap to try again.")
+              .setIconUri(getUriToDrawable(ctx, R.drawable.ic_server_unreachable))
+              .build()
+      result.sendResult(mutableListOf(MediaBrowserCompat.MediaItem(description, MediaBrowserCompat.MediaItem.FLAG_PLAYABLE)))
+      return
+    }
+
     // Prevent crashing if app is restarted while browsing
-    if ((parentMediaId != DOWNLOADS_ROOT && parentMediaId != AUTO_MEDIA_ROOT) && !firstLoadDone) {
+    if ((parentMediaId != DOWNLOADS_ROOT && parentMediaId != AUTO_MEDIA_ROOT && parentMediaId != BOOST_ROOT) && !firstLoadDone) {
       result.sendResult(null)
       return
     }
 
-    if (parentMediaId == DOWNLOADS_ROOT) { // Load downloads
+    if (parentMediaId == BOOST_ROOT) { // Android Auto volume boost levels
+      val current = VolumeBooster.levelIndex(RbsSettingsStore.androidAutoBoostDb(ctx))
+      val items: MutableList<MediaBrowserCompat.MediaItem> = mutableListOf()
+      VolumeBooster.LEVELS.forEachIndexed { index, db ->
+        val label = if (db > 0) "+$db dB" else "Off"
+        val description = MediaDescriptionCompat.Builder()
+                .setMediaId("$BOOST_ID_PREFIX$db")
+                .setTitle(if (index == current) "✓ $label" else label)
+                .setSubtitle("Android Auto volume boost")
+                .setIconUri(getUriToDrawable(ctx, boostIcon(db)))
+                .build()
+        items += MediaBrowserCompat.MediaItem(description, MediaBrowserCompat.MediaItem.FLAG_PLAYABLE)
+      }
+      result.sendResult(items)
+    } else if (parentMediaId == DOWNLOADS_ROOT) { // Load downloads
       val localBooks = DeviceManager.dbManager.getLocalLibraryItems("book")
       val localPodcasts = DeviceManager.dbManager.getLocalLibraryItems("podcast")
       val localBrowseItems: MutableList<MediaBrowserCompat.MediaItem> = mutableListOf()
@@ -1331,7 +1683,8 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
                           this,
                           mediaManager.serverItemsInProgress,
                           mediaManager.serverLibraries,
-                          mediaManager.allLibraryPersonalizationsDone
+                          mediaManager.allLibraryPersonalizationsDone,
+                          androidAutoServerUnreachable()
                   )
           onBrowseTreeInitialized()
           val children =
@@ -1345,6 +1698,8 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
 
           result.sendResult(children as MutableList<MediaBrowserCompat.MediaItem>?)
           firstLoadDone = true
+          // Could not reach the server: keep trying for a few minutes (and again when the network changes)
+          if (androidAutoServerUnreachable()) scheduleAndroidAutoRetries() else androidAutoRetryIndex = 0
           if (mediaManager.serverLibraries.isNotEmpty()) {
             AbsLogger.info(tag, "onLoadChildren: Android Auto fetching personalized data for all libraries")
             mediaManager.populatePersonalizedDataForAllLibraries {
@@ -1366,7 +1721,8 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
                         this,
                         mediaManager.serverItemsInProgress,
                         mediaManager.serverLibraries,
-                        mediaManager.allLibraryPersonalizationsDone
+                        mediaManager.allLibraryPersonalizationsDone,
+                        androidAutoServerUnreachable()
                 )
         onBrowseTreeInitialized()
         val children =
@@ -2104,6 +2460,7 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
                                 firstLoadDone &&
                                 mediaManager.serverLibraries.isEmpty()
                 ) {
+                  androidAutoRetryIndex = 0
                   forceReloadingAndroidAuto = true
                   notifyChildrenChanged("/")
                 }
@@ -2180,6 +2537,20 @@ class PlayerNotificationService : MediaBrowserServiceCompat() {
                       R.drawable.skip_previous_24
               )
               .build()
+    }
+  }
+
+  inner class ChangeBoostCustomActionProvider : CustomActionProvider {
+    override fun onCustomAction(player: Player, action: String, extras: Bundle?) {
+      // Handled by MediaSessionCallback.onCustomAction()
+    }
+
+    override fun getCustomAction(player: Player): PlaybackStateCompat.CustomAction? {
+      if (!RbsSettingsStore.volumeBoostEnabled(getContext())) return null
+      // One button: each tap raises the boost by 2 dB, after +20 it is off again (the level is also a slider in the app)
+      val level = RbsSettingsStore.androidAutoBoostDb(getContext())
+      val label = if (level > 0) "Volume boost +$level dB (tap for more)" else "Volume boost off (tap to turn on)"
+      return PlaybackStateCompat.CustomAction.Builder(CUSTOM_ACTION_CHANGE_BOOST, label, boostIcon(level)).build()
     }
   }
 

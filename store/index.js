@@ -12,9 +12,11 @@ export const state = () => ({
   isCasting: false,
   isCastAvailable: false,
   attemptingConnection: false,
+  switchingAddress: false, // moving between the internal and external server address after a network change
   socketConnected: false,
   networkConnected: false,
   networkConnectionType: null,
+  networkChangeCounter: 0,
   isNetworkUnmetered: true,
   isFirstLoad: true,
   isFirstAudioLoad: true,
@@ -146,6 +148,9 @@ export const mutations = {
   setCastAvailable(state, available) {
     state.isCastAvailable = available
   },
+  setSwitchingAddress(state, val) {
+    state.switchingAddress = !!val
+  },
   setAttemptingConnection(state, val) {
     state.attemptingConnection = val
   },
@@ -190,6 +195,7 @@ export const mutations = {
       state.networkConnected = true
     }
     state.networkConnectionType = val.connectionType
+    state.networkChangeCounter++
   },
   setIsNetworkUnmetered(state, val) {
     state.isNetworkUnmetered = val

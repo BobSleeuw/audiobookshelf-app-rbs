@@ -165,7 +165,7 @@ export default {
     isConnectedToServer() {
       if (!this.isLocal) return true
       if (!this.libraryItem?.serverAddress) return false
-      return this.$store.getters['user/getServerAddress'] === this.libraryItem.serverAddress
+      return this.$store.getters['user/isSameServer'](this.libraryItem)
     },
     isLocal() {
       return !!this.libraryItem?.isLocal

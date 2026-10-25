@@ -1,6 +1,6 @@
 {
-  "appId": "com.audiobookshelf.app",
-  "appName": "audiobookshelf-app",
+  "appId": "com.rbs.abs",
+  "appName": "ABS-RBS",
   "webDir": "dist",
   "plugins": {
     "CapacitorHttp": {

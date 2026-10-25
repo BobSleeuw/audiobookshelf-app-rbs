@@ -39,6 +39,13 @@ class LibraryAuthorItem(
     return Uri.parse("${DeviceManager.serverAddress}/api/authors/$id/image?token=${DeviceManager.token}")
   }
 
+  /** Picture address for Android Auto (ABS-RBS aa-cover-art) */
+  @JsonIgnore
+  fun getCarPortraitUri(): Uri {
+    if (imagePath == null) return getPortraitUri()
+    return com.audiobookshelf.app.media.CoverProvider.authorUri(id)
+  }
+
   @JsonIgnore
   fun getMediaDescription(progress:MediaProgressWrapper?, ctx: Context, groupTitle: String?): MediaDescriptionCompat {
     val extras = Bundle()
@@ -50,7 +57,7 @@ class LibraryAuthorItem(
     return MediaDescriptionCompat.Builder()
       .setMediaId(mediaId)
       .setTitle(title)
-      .setIconUri(getPortraitUri())
+      .setIconUri(getCarPortraitUri())
       .setSubtitle("${bookCount} books")
       .setExtras(extras)
       .build()
