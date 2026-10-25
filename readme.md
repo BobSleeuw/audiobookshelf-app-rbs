@@ -41,8 +41,12 @@ The build number is shown at the bottom of the side menu, behind the official ve
 - **Jump times** of 1 minute are shown as `1m`.
 
 <p>
-  <img src="docs/screenshots/settings-playback.png" alt="Playback and audio settings" width="300" />
+  <img src="docs/screenshots/settings-playback.png" alt="Playback and audio settings" width="260" />
+  <img src="docs/screenshots/player-go-back-bar.png" alt="Player with the history button and the go back bar" width="260" />
+  <img src="docs/screenshots/playback-history.png" alt="Playback history window" width="260" />
 </p>
+
+*Left: the playback settings. Middle: the history button with its count and the "go back" bar after a jump. Right: the playback history list.*
 
 ### Settings
 
@@ -67,6 +71,10 @@ The settings are reorganised into four categories with a search box: **Appearanc
 
 - Own package name (`com.rbs.abs`), app name and icon, so it can be installed beside the official app.
 - Build number shown in the side menu.
+
+<p>
+  <img src="docs/screenshots/side-menu.png" alt="Side menu with the build number" width="260" />
+</p>
 
 ---
 
