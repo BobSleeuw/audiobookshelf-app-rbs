@@ -42,8 +42,8 @@ android {
     applicationId "com.rbs.abs"
     minSdkVersion rootProject.ext.minSdkVersion
     targetSdkVersion rootProject.ext.targetSdkVersion
-    versionCode 133
-    versionName "0.14.2-rbs.12.1"
+    versionCode 134
+    versionName "0.14.2-rbs.12.2"
     testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     manifestPlaceholders = [
       "appAuthRedirectScheme": "com.rbs.abs"
