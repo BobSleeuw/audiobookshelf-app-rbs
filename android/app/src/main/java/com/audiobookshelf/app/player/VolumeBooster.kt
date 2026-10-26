@@ -102,21 +102,44 @@ object VolumeBooster {
     if (notify) onChanged?.invoke()
   }
 
-  /** Re-reads the car connection and applies the gain; call when playback starts. */
+  /**
+   * Playback started. The boost is set up again several times during the first minute: right away, shortly after
+   * (the audio track is created a moment later) and a few more times (the car connection is sometimes reported
+   * late). After that nothing is checked until playback is started again.
+   */
   fun refresh() {
     val before = carConnected
     apply(notify = false)
     if (before != carConnected) onChanged?.invoke()
-    // The audio track of the player is created a moment after playback starts, and an effect that was set up before
-    // that can be ignored by it until something resets it (a level change or a seek did). So the effect is created
-    // again shortly after playback started.
-    reattachHandler.removeCallbacks(reattachRunnable)
-    reattachHandler.postDelayed(reattachRunnable, 400)
-    reattachHandler.postDelayed(reattachRunnable, 2000)
+    watchHandler.removeCallbacks(forcedReattachRunnable)
+    forcedReattachStep = 0
+    watching = true
+    watchHandler.postDelayed(forcedReattachRunnable, FORCED_REATTACH_DELAYS_MS[0])
   }
 
-  private val reattachHandler = Handler(Looper.getMainLooper())
-  private val reattachRunnable = Runnable { reattach() }
+  /** Playback paused or stopped: the timed set-ups are cancelled. */
+  fun pauseWatching() {
+    watching = false
+    watchHandler.removeCallbacks(forcedReattachRunnable)
+  }
+
+  private val FORCED_REATTACH_DELAYS_MS = longArrayOf(400, 1600, 3000, 5000, 10000, 20000, 20000)
+  private val watchHandler = Handler(Looper.getMainLooper())
+  private var watching = false
+  private var forcedReattachStep = 0
+
+  /** The effect is created again on the audio session, after the car connection is read again */
+  private val forcedReattachRunnable = object : Runnable {
+    override fun run() {
+      if (!watching) return
+      val before = carConnected
+      refreshCarConnection()
+      reattach()
+      if (before != carConnected) onChanged?.invoke()
+      forcedReattachStep++
+      if (forcedReattachStep < FORCED_REATTACH_DELAYS_MS.size) watchHandler.postDelayed(this, FORCED_REATTACH_DELAYS_MS[forcedReattachStep])
+    }
+  }
 
   /** Creates the enhancer again on the current audio session so it is bound to the audio track that plays now. */
   @Synchronized
@@ -154,6 +177,7 @@ object VolumeBooster {
 
   @Synchronized
   fun release() {
+    pauseWatching()
     releaseEnhancer()
     observer?.let {
       try {

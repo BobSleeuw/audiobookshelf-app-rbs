@@ -42,7 +42,7 @@ class PlayerListener(var playerNotificationService:PlayerNotificationService) : 
     Log.d(tag, "onIsPlayingChanged to $isPlaying | ${playerNotificationService.getMediaPlayer()} | playbackState=${playerNotificationService.currentPlayer.playbackState}")
 
     val player = playerNotificationService.currentPlayer
-    if (isPlaying) VolumeBooster.refresh()
+    if (isPlaying) VolumeBooster.refresh() else VolumeBooster.pauseWatching()
 
     // Goal of these 2 if statements and the lazyIsPlaying is to ignore this event when it is triggered by a seek
     //  When a seek occurs the player is paused and buffering, then plays again right afterwards.
